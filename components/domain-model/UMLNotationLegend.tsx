@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { ReactNode } from "react";
@@ -44,10 +43,12 @@ const CLASS_ITEMS: UMLNotationItem[] = [
   {
     id: "interface",
     title: "Interfaz",
-    description: "Contrato con estereotipo <<interface>>.",
+    description: "Contrato con estereotipo «interface».",
     figure: (
       <div className="w-20 overflow-hidden rounded border border-gray-400 bg-white text-[9px] text-gray-700 shadow-sm">
-        <div className="border-b border-gray-300 px-1 py-[2px] text-center text-[8px] text-gray-500"><<interface>></div>
+        <div className="border-b border-gray-300 px-1 py-[2px] text-center text-[8px] text-gray-500">
+          &lt;&lt;interface&gt;&gt;
+        </div>
         <div className="border-b border-gray-300 px-1 py-[2px] text-center font-semibold">Servicio</div>
         <div className="px-1 py-[2px] text-left italic text-gray-500">+ operar()</div>
       </div>
@@ -55,13 +56,15 @@ const CLASS_ITEMS: UMLNotationItem[] = [
   },
   {
     id: "enumeration",
-    title: "Enumeracion",
-    description: "Lista finita de valores posible.",
+    title: "Enumeración",
+    description: "Lista finita de valores posibles.",
     figure: (
       <div className="w-20 overflow-hidden rounded border border-gray-400 bg-white text-[9px] text-gray-700 shadow-sm">
-        <div className="border-b border-gray-300 px-1 py-[2px] text-center text-[8px] text-gray-500"><<enumeration>></div>
+        <div className="border-b border-gray-300 px-1 py-[2px] text-center text-[8px] text-gray-500">
+          &lt;&lt;enumeration&gt;&gt;
+        </div>
         <div className="border-b border-gray-300 px-1 py-[2px] text-center font-semibold">Estado</div>
-        <div className="px-1 py-[2px] text-left text-gray-600">- NUEVO</div>
+        <div className="px-1 text-left text-gray-600">- NUEVO</div>
         <div className="px-1 pb-1 text-left text-gray-600">- APROBADO</div>
       </div>
     ),
@@ -71,10 +74,10 @@ const CLASS_ITEMS: UMLNotationItem[] = [
 const RELATION_ITEMS: UMLNotationItem[] = [
   {
     id: "association",
-    title: "Asociacion",
-    description: "Union estructural simple entre clases.",
+    title: "Asociación",
+    description: "Unión estructural simple entre clases.",
     figure: (
-      <svg viewBox="0 0 90 32" className="h-8 w-20 text-gray-700">
+      <svg viewBox="0 0 90 32" className="h-8 w-20 text-gray-700" aria-hidden="true">
         <line x1="8" y1="16" x2="74" y2="16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         <polygon points="74,16 64,10 64,22" fill="currentColor" />
       </svg>
@@ -82,10 +85,10 @@ const RELATION_ITEMS: UMLNotationItem[] = [
   },
   {
     id: "aggregation",
-    title: "Agregacion",
-    description: "Relacion todo-parte con ciclo de vida independiente.",
+    title: "Agregación",
+    description: "Relación todo–parte con ciclo de vida independiente.",
     figure: (
-      <svg viewBox="0 0 90 32" className="h-8 w-20 text-gray-700">
+      <svg viewBox="0 0 90 32" className="h-8 w-20 text-gray-700" aria-hidden="true">
         <polygon points="12,16 20,10 28,16 20,22" fill="white" stroke="currentColor" strokeWidth="2" />
         <line x1="28" y1="16" x2="78" y2="16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
       </svg>
@@ -93,10 +96,10 @@ const RELATION_ITEMS: UMLNotationItem[] = [
   },
   {
     id: "composition",
-    title: "Composicion",
-    description: "Relacion todo-parte con ciclo de vida compartido.",
+    title: "Composición",
+    description: "Relación todo–parte con ciclo de vida compartido.",
     figure: (
-      <svg viewBox="0 0 90 32" className="h-8 w-20 text-gray-700">
+      <svg viewBox="0 0 90 32" className="h-8 w-20 text-gray-700" aria-hidden="true">
         <polygon points="12,16 20,10 28,16 20,22" fill="currentColor" stroke="currentColor" strokeWidth="2" />
         <line x1="28" y1="16" x2="78" y2="16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
       </svg>
@@ -104,10 +107,10 @@ const RELATION_ITEMS: UMLNotationItem[] = [
   },
   {
     id: "generalization",
-    title: "Generalizacion",
+    title: "Generalización",
     description: "Herencia entre clase hija y padre.",
     figure: (
-      <svg viewBox="0 0 90 32" className="h-8 w-20 text-gray-700">
+      <svg viewBox="0 0 90 32" className="h-8 w-20 text-gray-700" aria-hidden="true">
         <line x1="8" y1="16" x2="66" y2="16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         <polygon points="66,16 54,10 54,22" fill="white" stroke="currentColor" strokeWidth="2" />
       </svg>
@@ -115,11 +118,20 @@ const RELATION_ITEMS: UMLNotationItem[] = [
   },
   {
     id: "realization",
-    title: "Realizacion",
-    description: "Implementacion de una interfaz por una clase.",
+    title: "Realización",
+    description: "Implementación de una interfaz por una clase.",
     figure: (
-      <svg viewBox="0 0 90 32" className="h-8 w-20 text-gray-700">
-        <line x1="8" y1="16" x2="66" y2="16" stroke="currentColor" strokeWidth="2" strokeDasharray="4 3" strokeLinecap="butt" />
+      <svg viewBox="0 0 90 32" className="h-8 w-20 text-gray-700" aria-hidden="true">
+        <line
+          x1="8"
+          y1="16"
+          x2="66"
+          y2="16"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeDasharray="4 3"
+          strokeLinecap="butt"
+        />
         <polygon points="66,16 54,10 54,22" fill="white" stroke="currentColor" strokeWidth="2" />
       </svg>
     ),
@@ -129,8 +141,17 @@ const RELATION_ITEMS: UMLNotationItem[] = [
     title: "Dependencia",
     description: "Acoplamiento ligero no estructural.",
     figure: (
-      <svg viewBox="0 0 90 32" className="h-8 w-20 text-gray-700">
-        <line x1="12" y1="16" x2="70" y2="16" stroke="currentColor" strokeWidth="2" strokeDasharray="3 3" strokeLinecap="butt" />
+      <svg viewBox="0 0 90 32" className="h-8 w-20 text-gray-700" aria-hidden="true">
+        <line
+          x1="12"
+          y1="16"
+          x2="70"
+          y2="16"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeDasharray="3 3"
+          strokeLinecap="butt"
+        />
         <polygon points="70,16 60,11 60,21" fill="currentColor" />
       </svg>
     ),
@@ -146,8 +167,8 @@ export default function UMLNotationLegend() {
   return (
     <div className="space-y-4">
       <header className="rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
-        <h2 className="text-sm font-semibold text-gray-900">Notacion UML 2.5</h2>
-        <p className="text-xs text-gray-500">Referencia rapida de los simbolos usados en el tablero.</p>
+        <h2 className="text-sm font-semibold text-gray-900">Notación UML 2.5</h2>
+        <p className="text-xs text-gray-500">Referencia rápida de los símbolos usados en el tablero.</p>
       </header>
       <div className="space-y-4">
         {UML_NOTATION_SECTIONS.map((section) => (
