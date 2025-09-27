@@ -44,7 +44,7 @@ export default function DiagramCanvas() {
     <div className="h-[80vh] border rounded-xl overflow-hidden">
       <div className="p-2 flex gap-2 border-b bg-white">
         <button onClick={handleAddClass} className="px-3 py-1 rounded-md border hover:bg-gray-50">+ Clase</button>
-        <span className="text-sm text-gray-500">Arrastra desde un nodo a otro para crear relación.</span>
+        <span className="text-sm text-gray-500">Arrastra desde un nodo a otro para crear relacion.</span>
       </div>
       <ReactFlow
         nodes={nodes}
@@ -61,3 +61,4 @@ export default function DiagramCanvas() {
     </div>
   );
 }
+

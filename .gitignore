@@ -1,0 +1,44 @@
+# Dependencias
+/node_modules
+
+# Builds / empaquetados
+.next/
+out/
+dist/
+.turbo/
+
+# Caches y logs
+.npm/
+.pnpm-debug.log*
+yarn-*.log*
+npm-*.log*
+*.log
+coverage/
+
+# Env y secretos
+.env
+.env.*.local
+
+# Mantén un ejemplo sin secretos
+!.env.example
+
+# Prisma (mantén schema y migraciones; ignora DB local)
+prisma/dev.db
+prisma/dev.db-journal
+
+# Docker (volúmenes/archivos locales opcionales)
+docker-data/
+docker/**/data/
+docker-compose.override.yml
+
+# SO / Editores
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Artefactos generados por codegen/tests
+*.zip
+*.tgz
+.tmp/

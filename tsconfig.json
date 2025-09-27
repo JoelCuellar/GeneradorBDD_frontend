@@ -21,7 +21,14 @@
       "@/*": [
         "./*"
       ]
-    }
+    },
+    "allowJs": true,
+    "isolatedModules": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
   },
   "include": [
     "next-env.d.ts",
