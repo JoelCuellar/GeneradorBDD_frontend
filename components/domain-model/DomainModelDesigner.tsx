@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import type { ChangeEvent, FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -26,7 +26,13 @@ import {
 } from "@/lib/api/domain-model";
 import { ApiError } from "@/lib/api/client";
 import DomainModelDiagram from "./DomainModelDiagram";
-import UMLNotationLegend from "./UMLNotationLegend";
+import UMLNotationLegend, {
+  CLASS_ITEM_IDS,
+  RELATION_ITEM_IDS,
+  type UMLClassItemId,
+  type UMLNotationItemId,
+  type UMLRelationItemId,
+} from "./UMLNotationLegend";
 import { renderMultiplicity, summarizeConfig } from "./utils";
 
 interface DomainModelDesignerProps {
@@ -101,6 +107,95 @@ const MULTIPLICITY_OPTIONS: { value: DomainMultiplicity; label: string }[] = [
   { value: "CERO_O_MAS", label: "0.." },
 ];
 
+const CLASS_LEGEND_TEMPLATES: Record<
+  UMLClassItemId,
+  { baseName: string; description: string | null; successMessage: string }
+> = {
+  class: {
+    baseName: "Nueva clase",
+    description: null,
+    successMessage: "Clase creada desde la leyenda.",
+  },
+  "abstract-class": {
+    baseName: "Nueva clase abstracta",
+    description: "Marque los metodos abstractos necesarios.",
+    successMessage: "Clase abstracta creada desde la leyenda.",
+  },
+  interface: {
+    baseName: "Nueva interfaz",
+    description: "Defina las operaciones de la interfaz.",
+    successMessage: "Interfaz creada desde la leyenda.",
+  },
+  enumeration: {
+    baseName: "Nueva enumeracion",
+    description: "Agregue los valores que correspondan.",
+    successMessage: "Enumeracion creada desde la leyenda.",
+  },
+};
+
+const RELATION_LEGEND_TEMPLATES: Record<
+  UMLRelationItemId,
+  {
+    label: string;
+    name: string | null;
+    sourceMultiplicity: DomainMultiplicity;
+    targetMultiplicity: DomainMultiplicity;
+    successMessage: string;
+  }
+> = {
+  association: {
+    label: "asociacion",
+    name: "Asociacion",
+    sourceMultiplicity: "UNO",
+    targetMultiplicity: "UNO",
+    successMessage: "Asociacion creada desde la leyenda",
+  },
+  aggregation: {
+    label: "agregacion",
+    name: "Agregacion",
+    sourceMultiplicity: "UNO",
+    targetMultiplicity: "CERO_O_MAS",
+    successMessage: "Agregacion creada desde la leyenda",
+  },
+  composition: {
+    label: "composicion",
+    name: "Composicion",
+    sourceMultiplicity: "UNO",
+    targetMultiplicity: "UNO_O_MAS",
+    successMessage: "Composicion creada desde la leyenda",
+  },
+  generalization: {
+    label: "generalizacion",
+    name: "Generalizacion",
+    sourceMultiplicity: "UNO",
+    targetMultiplicity: "UNO",
+    successMessage: "Generalizacion creada desde la leyenda",
+  },
+  realization: {
+    label: "realizacion",
+    name: "Realizacion",
+    sourceMultiplicity: "UNO",
+    targetMultiplicity: "UNO",
+    successMessage: "Realizacion creada desde la leyenda",
+  },
+  dependency: {
+    label: "dependencia",
+    name: "Dependencia",
+    sourceMultiplicity: "UNO",
+    targetMultiplicity: "UNO",
+    successMessage: "Dependencia creada desde la leyenda",
+  },
+};
+
+const CLASS_ITEM_ID_SET = new Set<string>(CLASS_ITEM_IDS);
+const RELATION_ITEM_ID_SET = new Set<string>(RELATION_ITEM_IDS);
+
+const isClassLegendItem = (itemId: UMLNotationItemId): itemId is UMLClassItemId =>
+  CLASS_ITEM_ID_SET.has(itemId);
+
+const isRelationLegendItem = (itemId: UMLNotationItemId): itemId is UMLRelationItemId =>
+  RELATION_ITEM_ID_SET.has(itemId);
+
 
 
 
@@ -126,8 +221,11 @@ export default function DomainModelDesigner({ projectId, actorId, onRefresh }: D
 
   const [identityForm, setIdentityForm] = useState<IdentityFormState>(INITIAL_IDENTITY_FORM);
   const [editingIdentityId, setEditingIdentityId] = useState<string | null>(null);
+  const [pendingLegendRelation, setPendingLegendRelation] = useState<
+    { itemId: UMLRelationItemId; sourceClassId?: string } | null
+  >(null);
 
-const reloadModel = useCallback(() => {
+  const reloadModel = useCallback(() => {
     setLoading(true);
     setError(null);
     getDomainModel(projectId, actorId)
@@ -160,6 +258,25 @@ const reloadModel = useCallback(() => {
   const classes = useMemo(() => model?.classes ?? [], [model?.classes]);
   const relations = useMemo(() => model?.relations ?? [], [model?.relations]);
 
+  const generateUniqueName = useCallback(
+    (baseName: string) => {
+      const normalized = baseName.trim();
+      if (!normalized) {
+        return baseName.trim();
+      }
+      const existing = new Set(classes.map((domainClass) => domainClass.name.toLowerCase()));
+      if (!existing.has(normalized.toLowerCase())) {
+        return normalized;
+      }
+      let suffix = 2;
+      while (existing.has(`${normalized} ${suffix}`.toLowerCase())) {
+        suffix += 1;
+      }
+      return `${normalized} ${suffix}`;
+    },
+    [classes],
+  );
+
   const scrollToSection = useCallback((sectionId: string) => {
     const element = document.getElementById(sectionId);
     if (!element) return;
@@ -176,15 +293,6 @@ const reloadModel = useCallback(() => {
     [scrollToSection],
   );
 
-  const handleSelectClassFromDiagram = useCallback(
-    (classId: string) => {
-      setSelectedClassId(classId);
-      setSelectedRelationId(null);
-      scrollToSection("selection-panel");
-    },
-    [scrollToSection],
-  );
-
   const handleQuickCreateRelation = useCallback(
     async (sourceClassId: string, targetClassId: string) => {
       if (
@@ -193,7 +301,8 @@ const reloadModel = useCallback(() => {
             relation.sourceClassId === sourceClassId && relation.targetClassId === targetClassId,
         )
       ) {
-        setFeedback('La relacion ya existe entre estas clases');
+        setFeedback("La relacion ya existe entre estas clases");
+        setPendingLegendRelation(null);
         return;
       }
       setError(null);
@@ -206,7 +315,8 @@ const reloadModel = useCallback(() => {
           sourceMultiplicity: "UNO",
           targetMultiplicity: "UNO",
         });
-        setFeedback('Relacion creada desde el diagrama');
+        setFeedback("Relacion creada desde el diagrama");
+        setPendingLegendRelation(null);
         reloadModel();
         onRefresh?.();
       } catch (err) {
@@ -214,6 +324,134 @@ const reloadModel = useCallback(() => {
       }
     },
     [relations, projectId, actorId, reloadModel, onRefresh, setError, setFeedback],
+  );
+
+  const handleLegendItemActivate = useCallback(
+    async (itemId: UMLNotationItemId) => {
+      if (isClassLegendItem(itemId)) {
+        setPendingLegendRelation(null);
+        const template = CLASS_LEGEND_TEMPLATES[itemId];
+        const name = generateUniqueName(template.baseName);
+        if (!name) {
+          return;
+        }
+        setError(null);
+        try {
+          const createdClass = await createDomainClass({
+            projectId,
+            actorId,
+            name,
+            description: template.description,
+          });
+          setModel((prev) => {
+            if (!prev) {
+              return { classes: [createdClass], relations: [] };
+            }
+            if (prev.classes.some((domainClass) => domainClass.id === createdClass.id)) {
+              return prev;
+            }
+            return { ...prev, classes: [...prev.classes, createdClass] };
+          });
+          setSelectedClassId(createdClass.id);
+          setFeedback(template.successMessage);
+          reloadModel();
+          onRefresh?.();
+        } catch (err) {
+          setError(resolveError(err));
+        }
+        return;
+      }
+
+      if (isRelationLegendItem(itemId)) {
+        if (classes.length < 2) {
+          setFeedback("Necesitas al menos dos clases para crear una relacion.");
+          return;
+        }
+        const template = RELATION_LEGEND_TEMPLATES[itemId];
+        setPendingLegendRelation({ itemId });
+        setFeedback(`Selecciona la clase origen en el diagrama para crear la ${template.label}.`);
+      }
+    },
+    [actorId, classes, generateUniqueName, onRefresh, projectId, reloadModel],
+  );
+
+  const getClassName = useCallback(
+    (classId: string) =>
+      classes.find((domainClass) => domainClass.id === classId)?.name ?? "(sin nombre)",
+    [classes],
+  );
+
+  const createRelationFromLegend = useCallback(
+    async (sourceClassId: string, targetClassId: string, itemId: UMLRelationItemId) => {
+      const alreadyExists = relations.some(
+        (relation) =>
+          relation.sourceClassId === sourceClassId && relation.targetClassId === targetClassId,
+      );
+      if (alreadyExists) {
+        setFeedback("Ya existe una relacion entre las clases seleccionadas.");
+        setPendingLegendRelation(null);
+        return;
+      }
+      const template = RELATION_LEGEND_TEMPLATES[itemId];
+      setError(null);
+      try {
+        const createdRelation = await createDomainRelation({
+          projectId,
+          actorId,
+          sourceClassId,
+          targetClassId,
+          sourceMultiplicity: template.sourceMultiplicity,
+          targetMultiplicity: template.targetMultiplicity,
+          name: template.name,
+        });
+        setModel((prev) => {
+          if (!prev) {
+            return prev;
+          }
+          if (prev.relations.some((relation) => relation.id === createdRelation.id)) {
+            return prev;
+          }
+          return { ...prev, relations: [...prev.relations, createdRelation] };
+        });
+        setSelectedRelationId(createdRelation.id);
+        const sourceName = getClassName(sourceClassId);
+        const targetName = getClassName(targetClassId);
+        setFeedback(`${template.successMessage} entre ${sourceName} y ${targetName}.`);
+        reloadModel();
+        onRefresh?.();
+      } catch (err) {
+        setError(resolveError(err));
+      } finally {
+        setPendingLegendRelation(null);
+      }
+    },
+    [actorId, getClassName, onRefresh, projectId, reloadModel, relations],
+  );
+
+  const handleSelectClassFromDiagram = useCallback(
+    (classId: string) => {
+      setSelectedClassId(classId);
+      setSelectedRelationId(null);
+
+      if (pendingLegendRelation) {
+        const template = RELATION_LEGEND_TEMPLATES[pendingLegendRelation.itemId];
+        if (!pendingLegendRelation.sourceClassId) {
+          setPendingLegendRelation({ itemId: pendingLegendRelation.itemId, sourceClassId: classId });
+          setFeedback(`Selecciona la clase destino para completar la ${template.label}.`);
+        } else if (pendingLegendRelation.sourceClassId === classId) {
+          setFeedback("Selecciona una clase distinta como destino.");
+        } else {
+          void createRelationFromLegend(
+            pendingLegendRelation.sourceClassId,
+            classId,
+            pendingLegendRelation.itemId,
+          );
+        }
+      }
+
+      scrollToSection("selection-panel");
+    },
+    [createRelationFromLegend, pendingLegendRelation, scrollToSection],
   );
 
   const selectedClass = useMemo(
@@ -274,8 +512,6 @@ const reloadModel = useCallback(() => {
         relation.sourceClassId === selectedClassId || relation.targetClassId === selectedClassId,
     ).length;
   }, [relations, selectedClassId]);
-  const getClassName = (classId: string) =>
-    classes.find((domainClass) => domainClass.id === classId)?.name ?? "(sin nombre)";
   const handleCreateClass = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const name = createClassForm.name.trim();
@@ -653,7 +889,10 @@ const reloadModel = useCallback(() => {
 
       <div className="lg:grid lg:grid-cols-[260px_minmax(0,2fr)_minmax(360px,1fr)] lg:items-start lg:gap-6">
         <aside className="space-y-6">
-          <UMLNotationLegend />
+          <UMLNotationLegend
+            onItemActivate={handleLegendItemActivate}
+            activeItemId={pendingLegendRelation?.itemId ?? null}
+          />
         </aside>
         <div className="space-y-6">
           <DomainModelDiagram
@@ -1363,6 +1602,16 @@ const resolveError = (error: unknown) => {
   if (error instanceof Error) return error.message;
   return "Ocurrio un error inesperado";
 };
+
+
+
+
+
+
+
+
+
+
 
 
 

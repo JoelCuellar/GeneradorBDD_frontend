@@ -1,9 +1,27 @@
 "use client";
 
+import clsx from "clsx";
 import type { ReactNode } from "react";
 
+export const CLASS_ITEM_IDS = ["class", "abstract-class", "interface", "enumeration"] as const;
+export const RELATION_ITEM_IDS = [
+  "association",
+  "aggregation",
+  "composition",
+  "generalization",
+  "realization",
+  "dependency",
+] as const;
+
+export type UMLClassItemId = (typeof CLASS_ITEM_IDS)[number];
+export type UMLRelationItemId = (typeof RELATION_ITEM_IDS)[number];
+export type UMLNotationItemId = UMLClassItemId | UMLRelationItemId;
+
+type UMLNotationItemKind = "class" | "relation";
+
 type UMLNotationItem = {
-  id: string;
+  id: UMLNotationItemId;
+  kind: UMLNotationItemKind;
   title: string;
   description: string;
   figure: ReactNode;
@@ -18,6 +36,7 @@ type UMLNotationSection = {
 const CLASS_ITEMS: UMLNotationItem[] = [
   {
     id: "class",
+    kind: "class",
     title: "Clase",
     description: "Elemento concreto con compartimentos para atributos y operaciones.",
     figure: (
@@ -30,6 +49,7 @@ const CLASS_ITEMS: UMLNotationItem[] = [
   },
   {
     id: "abstract-class",
+    kind: "class",
     title: "Clase abstracta",
     description: "Nombre en cursiva. No puede instanciarse directamente.",
     figure: (
@@ -42,8 +62,9 @@ const CLASS_ITEMS: UMLNotationItem[] = [
   },
   {
     id: "interface",
+    kind: "class",
     title: "Interfaz",
-    description: "Contrato con estereotipo «interface».",
+    description: "Contrato con estereotipo interface.",
     figure: (
       <div className="w-20 overflow-hidden rounded border border-gray-400 bg-white text-[9px] text-gray-700 shadow-sm">
         <div className="border-b border-gray-300 px-1 py-[2px] text-center text-[8px] text-gray-500">
@@ -56,7 +77,8 @@ const CLASS_ITEMS: UMLNotationItem[] = [
   },
   {
     id: "enumeration",
-    title: "Enumeración",
+    kind: "class",
+    title: "Enumeracion",
     description: "Lista finita de valores posibles.",
     figure: (
       <div className="w-20 overflow-hidden rounded border border-gray-400 bg-white text-[9px] text-gray-700 shadow-sm">
@@ -74,8 +96,9 @@ const CLASS_ITEMS: UMLNotationItem[] = [
 const RELATION_ITEMS: UMLNotationItem[] = [
   {
     id: "association",
-    title: "Asociación",
-    description: "Unión estructural simple entre clases.",
+    kind: "relation",
+    title: "Asociacion",
+    description: "Union estructural simple entre clases.",
     figure: (
       <svg viewBox="0 0 90 32" className="h-8 w-20 text-gray-700" aria-hidden="true">
         <line x1="8" y1="16" x2="74" y2="16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -85,8 +108,9 @@ const RELATION_ITEMS: UMLNotationItem[] = [
   },
   {
     id: "aggregation",
-    title: "Agregación",
-    description: "Relación todo–parte con ciclo de vida independiente.",
+    kind: "relation",
+    title: "Agregacion",
+    description: "Relacion todo-parte con ciclo de vida independiente.",
     figure: (
       <svg viewBox="0 0 90 32" className="h-8 w-20 text-gray-700" aria-hidden="true">
         <polygon points="12,16 20,10 28,16 20,22" fill="white" stroke="currentColor" strokeWidth="2" />
@@ -96,8 +120,9 @@ const RELATION_ITEMS: UMLNotationItem[] = [
   },
   {
     id: "composition",
-    title: "Composición",
-    description: "Relación todo–parte con ciclo de vida compartido.",
+    kind: "relation",
+    title: "Composicion",
+    description: "Relacion todo-parte con ciclo de vida compartido.",
     figure: (
       <svg viewBox="0 0 90 32" className="h-8 w-20 text-gray-700" aria-hidden="true">
         <polygon points="12,16 20,10 28,16 20,22" fill="currentColor" stroke="currentColor" strokeWidth="2" />
@@ -107,7 +132,8 @@ const RELATION_ITEMS: UMLNotationItem[] = [
   },
   {
     id: "generalization",
-    title: "Generalización",
+    kind: "relation",
+    title: "Generalizacion",
     description: "Herencia entre clase hija y padre.",
     figure: (
       <svg viewBox="0 0 90 32" className="h-8 w-20 text-gray-700" aria-hidden="true">
@@ -118,8 +144,9 @@ const RELATION_ITEMS: UMLNotationItem[] = [
   },
   {
     id: "realization",
-    title: "Realización",
-    description: "Implementación de una interfaz por una clase.",
+    kind: "relation",
+    title: "Realizacion",
+    description: "Implementacion de una interfaz por una clase.",
     figure: (
       <svg viewBox="0 0 90 32" className="h-8 w-20 text-gray-700" aria-hidden="true">
         <line
@@ -138,6 +165,7 @@ const RELATION_ITEMS: UMLNotationItem[] = [
   },
   {
     id: "dependency",
+    kind: "relation",
     title: "Dependencia",
     description: "Acoplamiento ligero no estructural.",
     figure: (
@@ -163,12 +191,17 @@ const UML_NOTATION_SECTIONS: UMLNotationSection[] = [
   { id: "relations", title: "Relaciones", items: RELATION_ITEMS },
 ];
 
-export default function UMLNotationLegend() {
+type UMLNotationLegendProps = {
+  onItemActivate?: (itemId: UMLNotationItemId, itemKind: UMLNotationItemKind) => void;
+  activeItemId?: UMLNotationItemId | null;
+};
+
+export default function UMLNotationLegend({ onItemActivate, activeItemId = null }: UMLNotationLegendProps) {
   return (
     <div className="space-y-4">
       <header className="rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
-        <h2 className="text-sm font-semibold text-gray-900">Notación UML 2.5</h2>
-        <p className="text-xs text-gray-500">Referencia rápida de los símbolos usados en el tablero.</p>
+        <h2 className="text-sm font-semibold text-gray-900">Notacion UML 2.5</h2>
+        <p className="text-xs text-gray-500">Referencia rapida de los simbolos usados en el tablero.</p>
       </header>
       <div className="space-y-4">
         {UML_NOTATION_SECTIONS.map((section) => (
@@ -176,14 +209,25 @@ export default function UMLNotationLegend() {
             <h3 className="text-xs font-semibold uppercase text-gray-500">{section.title}</h3>
             <ul className="mt-3 space-y-3">
               {section.items.map((item) => (
-                <li key={item.id} className="flex items-start gap-3">
-                  <div className="flex h-12 w-20 items-center justify-center rounded border border-gray-300 bg-gray-50 p-1">
-                    {item.figure}
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm font-semibold text-gray-900">{item.title}</p>
-                    <p className="text-xs text-gray-600">{item.description}</p>
-                  </div>
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    onClick={() => onItemActivate?.(item.id, item.kind)}
+                    className={clsx(
+                      "flex w-full items-start gap-3 rounded-lg border border-transparent bg-transparent p-2 text-left transition focus:outline-none focus-visible:ring focus-visible:ring-blue-200 focus-visible:ring-offset-0",
+                      activeItemId === item.id
+                        ? "border-blue-300 bg-blue-50"
+                        : "hover:border-blue-200 hover:bg-blue-50",
+                    )}
+                  >
+                    <div className="flex h-12 w-20 items-center justify-center rounded border border-gray-300 bg-gray-50 p-1">
+                      {item.figure}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-gray-900">{item.title}</p>
+                      <p className="text-xs text-gray-600">{item.description}</p>
+                    </div>
+                  </button>
                 </li>
               ))}
             </ul>

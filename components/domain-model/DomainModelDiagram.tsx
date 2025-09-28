@@ -226,7 +226,12 @@ export default function DomainModelDiagram({
           nodeStrokeColor={(node) => (node.data?.selected ? EDGE_COLOR_SELECTED : "#9ca3af")}
           nodeColor={(node) => (node.data?.selected ? "#dbeafe" : "#f9fafb")}
         />
-        <Controls position="bottom-right" showFitView showInteractive={false} />
+        <Controls
+          position="bottom-right"
+          showFitView
+          showInteractive={false}
+          style={{ right: 12, bottom: 12, transform: "scale(0.82)" }}
+        />
       </ReactFlow>
     </div>
   );
@@ -289,3 +294,4 @@ const formatRelationLabel = (relation: DomainRelation) => {
   const right = `${relation.targetRole ?? relation.targetClassId} (${renderMultiplicity(relation.targetMultiplicity)})`;
   return relation.name ? `${relation.name} | ${left} -> ${right}` : `${left} -> ${right}`;
 };
+
