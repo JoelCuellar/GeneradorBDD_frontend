@@ -11,6 +11,7 @@ import ReactFlow, {
   MarkerType,
   MiniMap,
   Position,
+  type OnEdgeUpdateFunc,
   type Edge,
   type Node,
   type NodeChange,
@@ -23,13 +24,12 @@ import "reactflow/dist/style.css";
 import MultiplicityEdge from "./MultiplicityEdge";
 import type { DomainClass, DomainRelation, DomainMultiplicity } from "@/lib/api/domain-model";
 import { renderMultiplicity } from "./utils";
-
 type DiagramNodeData = {
   domainClass: DomainClass;
   selected: boolean;
   onSelect: (classId: string) => void;
 };
-
+import type { Edge as RFEdge } from "reactflow";
 interface DomainModelDiagramProps {
   classes: DomainClass[];
   relations: DomainRelation[];
@@ -76,6 +76,18 @@ export default function DomainModelDiagram({
     () => Object.fromEntries(classes.map((c) => [c.id, c.name] as const)),
     [classes],
   );
+  const [edgeAnchors, setEdgeAnchors] = useState<Record<string, { sourceHandle?: string; targetHandle?: string }>>({});
+
+// Permite “mover” el extremo de una arista y recordar el puerto
+const onEdgeUpdate = useCallback<OnEdgeUpdateFunc>((oldEdge, newConn) => {
+  setEdgeAnchors((prev) => ({
+    ...prev,
+    [String(oldEdge.id)]: {
+      sourceHandle: newConn.sourceHandle ?? prev[String(oldEdge.id)]?.sourceHandle,
+      targetHandle: newConn.targetHandle ?? prev[String(oldEdge.id)]?.targetHandle,
+    },
+  }));
+}, []);
 
   // Posicionamiento inicial en grilla + saneo cuando cambian clases
   useEffect(() => {
@@ -122,33 +134,39 @@ export default function DomainModelDiagram({
 
   // Construcción de aristas con etiquetas legibles y estilo por tipo
   useEffect(() => {
-    const mappedEdges: Edge<EdgeData>[] = relations.map((relation) => {
-      const isSelected = relation.id === selectedRelationId;
-      const s = styleFor(relation.type);
+  const mappedEdges: Edge<EdgeData>[] = relations.map((relation) => {
+    const isSelected = relation.id === selectedRelationId;
+    const s = styleFor(relation.type);
 
-      // ← IMPORTANTE: pasar 2 argumentos (relation + mapa de nombres)
-      const labelText = `${s.badge ? s.badge + " " : ""}${formatRelationLabel(relation, classNameById)}`.trim();
+    const labelText = `${s.badge ? s.badge + " " : ""}${formatRelationLabel(relation, classNameById)}`.trim();
 
-      return {
-        id: relation.id,
-        source: relation.sourceClassId,
-        target: relation.targetClassId,
-        type: "multiplicity",
-        data: {
-          relation,
-          selected: isSelected,
-          sourceMultiplicity: relation.sourceMultiplicity,
-          targetMultiplicity: relation.targetMultiplicity,
-        },
-        label: labelText, // ← ahora sí mostramos el texto
-        
-        style: s.dash ? { strokeDasharray: s.dash, strokeWidth: 2 } : { strokeWidth: 2 },
-        animated: isSelected,
-        zIndex: isSelected ? 2 : 0,
-      };
-    });
-    setEdges(mappedEdges);
-  }, [relations, selectedRelationId, classNameById, setEdges]);
+    return {
+      id: relation.id,
+      source: relation.sourceClassId,
+      target: relation.targetClassId,
+      type: "multiplicity",           // ok
+      data: {
+        relation,
+        selected: isSelected,
+        sourceMultiplicity: relation.sourceMultiplicity,
+        targetMultiplicity: relation.targetMultiplicity,
+        labelText,
+      },
+      label: labelText,
+      selectable: true,
+      updatable: true,                // ✅ en tu RF es boolean, no 'both'
+      interactionWidth: 28,           // hitbox grande para seleccionarlo fácil
+      sourceHandle: edgeAnchors[relation.id]?.sourceHandle,
+      targetHandle: edgeAnchors[relation.id]?.targetHandle,
+      style: s.dash ? { strokeDasharray: s.dash, strokeWidth: 2 } : { strokeWidth: 2 },
+      animated: isSelected,
+      zIndex: isSelected ? 3 : 1,
+    };
+  });
+
+  setEdges(mappedEdges);              // ✅ ahora encaja con useEdgesState<EdgeData>
+}, [relations, selectedRelationId, classNameById, edgeAnchors, setEdges]);
+
 
   // Guardar posiciones al mover
   const handleNodesChange = useCallback(
@@ -208,6 +226,7 @@ export default function DomainModelDiagram({
         edgeTypes={edgeTypes}
         onNodesChange={handleNodesChange}
         onConnect={handleConnect}
+        onEdgeUpdate={onEdgeUpdate}
         onEdgeClick={handleEdgeClick}
         onPaneClick={handlePaneClick}
         panOnScroll
@@ -255,7 +274,13 @@ function styleFor(kind: string) {
 
 function ClassNode({ data }: NodeProps<DiagramNodeData>) {
   const { domainClass, selected, onSelect } = data;
-  const OFFSETS = ["15%", "50%", "85%"]; // posiciones verticales
+
+  // Cantidad de “puertos” por lado (ajustá a gusto)
+  const PORTS_PER_SIDE = 16;
+  const POS = useMemo(
+    () => Array.from({ length: PORTS_PER_SIDE }, (_, i) => ((i + 1) / (PORTS_PER_SIDE + 1)) * 100),
+    []
+  );
 
   return (
     <div
@@ -265,29 +290,48 @@ function ClassNode({ data }: NodeProps<DiagramNodeData>) {
         selected ? "border-indigo-500 ring-2 ring-indigo-200" : "border-gray-300",
       )}
     >
-      {/* LEFT: targets */}
-      {OFFSETS.map((top, i) => (
-        <Handle
-          key={`L${i}`}
-          id={`L${i}`}
-          type="target"
-          position={Position.Left}
-          style={{ top }}
-          className="!h-2 !w-2 !bg-indigo-500"
-        />
+      {/* ======= HANDLES INVISIBLES EN TODO EL BORDE ======= */}
+      {/* Top: source + target */}
+      {POS.map((p, i) => (
+        <Handle key={`t-s-${i}`} id={`t-s-${i}`} type="source" position={Position.Top}
+                style={{ left: `${p}%` }} className="handle-invisible" isConnectable />
       ))}
-      {/* RIGHT: sources */}
-      {OFFSETS.map((top, i) => (
-        <Handle
-          key={`R${i}`}
-          id={`R${i}`}
-          type="source"
-          position={Position.Right}
-          style={{ top }}
-          className="!h-2 !w-2 !bg-indigo-500"
-        />
+      {POS.map((p, i) => (
+        <Handle key={`t-t-${i}`} id={`t-t-${i}`} type="target" position={Position.Top}
+                style={{ left: `${p}%` }} className="handle-invisible" isConnectable />
       ))}
 
+      {/* Bottom */}
+      {POS.map((p, i) => (
+        <Handle key={`b-s-${i}`} id={`b-s-${i}`} type="source" position={Position.Bottom}
+                style={{ left: `${p}%` }} className="handle-invisible" isConnectable />
+      ))}
+      {POS.map((p, i) => (
+        <Handle key={`b-t-${i}`} id={`b-t-${i}`} type="target" position={Position.Bottom}
+                style={{ left: `${p}%` }} className="handle-invisible" isConnectable />
+      ))}
+
+      {/* Left */}
+      {POS.map((p, i) => (
+        <Handle key={`l-s-${i}`} id={`l-s-${i}`} type="source" position={Position.Left}
+                style={{ top: `${p}%` }} className="handle-invisible" isConnectable />
+      ))}
+      {POS.map((p, i) => (
+        <Handle key={`l-t-${i}`} id={`l-t-${i}`} type="target" position={Position.Left}
+                style={{ top: `${p}%` }} className="handle-invisible" isConnectable />
+      ))}
+
+      {/* Right */}
+      {POS.map((p, i) => (
+        <Handle key={`r-s-${i}`} id={`r-s-${i}`} type="source" position={Position.Right}
+                style={{ top: `${p}%` }} className="handle-invisible" isConnectable />
+      ))}
+      {POS.map((p, i) => (
+        <Handle key={`r-t-${i}`} id={`r-t-${i}`} type="target" position={Position.Right}
+                style={{ top: `${p}%` }} className="handle-invisible" isConnectable />
+      ))}
+
+      {/* ======= CONTENIDO DE LA TARJETA ======= */}
       <div className="border-b px-3 py-1.5">
         <div className="flex items-center justify-between">
           <h4 className="truncate text-sm font-semibold text-gray-900">{domainClass.name}</h4>
@@ -305,10 +349,7 @@ function ClassNode({ data }: NodeProps<DiagramNodeData>) {
           <ul className="space-y-1.5">
             {domainClass.attributes.slice(0, 6).map((attribute) => (
               <li key={attribute.id} className="flex items-center justify-between">
-                <span className="truncate text-[12px] text-gray-800">
-                  {attribute.required ? <strong>*</strong> : null}
-                  {attribute.name}
-                </span>
+                <span className="truncate text-[12px] text-gray-700">{attribute.name}</span>
                 <span className="text-[11px] text-indigo-500">{attribute.type}</span>
               </li>
             ))}
@@ -321,6 +362,7 @@ function ClassNode({ data }: NodeProps<DiagramNodeData>) {
     </div>
   );
 }
+
 
 const computeGridPosition = (index: number, total: number): XYPosition => {
   if (total === 0) return { x: 0, y: 0 };

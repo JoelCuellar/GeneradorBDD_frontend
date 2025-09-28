@@ -23,7 +23,7 @@ const BADGE_Y_SHIFT = 12;
 const EDGE_COLOR = "#94a3b8";           // slate-400
 const EDGE_COLOR_SELECTED = "#2563eb";  // blue-600
 const EDGE_STROKE = 1.6;                // grosor de línea
-const MARKER_SIZE = 4;                // escala base de los marcadores (más chico = más sutil)
+const MARKER_SIZE = 10;                // escala base de los marcadores (más chico = más sutil)
 const HOLLOW_STROKE = 0.8;              // grosor del borde para triángulo/diamante hueco
 const DASH_PATTERN = "5 4";    
 function badgePos(x: number, y: number, pos?: Position) {

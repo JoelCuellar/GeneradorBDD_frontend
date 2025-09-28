@@ -323,37 +323,34 @@ const [activeTab, setActiveTab] = useState<'clases' | 'estructura' | 'relaciones
   );
 
   const handleQuickCreateRelation = useCallback(
-    async (sourceClassId: string, targetClassId: string) => {
-      if (
-        relations.some(
-          (relation) =>
-            relation.sourceClassId === sourceClassId && relation.targetClassId === targetClassId,
-        )
-      ) {
-        setFeedback("La relacion ya existe entre estas clases");
-        setPendingLegendRelation(null);
-        return;
-      }
-      setError(null);
-      try {
-        await createDomainRelation({
-          projectId,
-          actorId,
-          sourceClassId,
-          targetClassId,
-          sourceMultiplicity: "UNO",
-          targetMultiplicity: "UNO",
-        });
-        setFeedback("Relacion creada desde el diagrama");
-        setPendingLegendRelation(null);
-        reloadModel();
-        onRefresh?.();
-      } catch (err) {
-        setError(resolveError(err));
-      }
-    },
-    [relations, projectId, actorId, reloadModel, onRefresh, setError, setFeedback],
-  );
+  async (sourceClassId: string, targetClassId: string) => {
+    // Permitimos duplicados: sin chequeos previos de existencia
+    setError(null);
+    try {
+      await createDomainRelation({
+        projectId,
+        actorId,
+        sourceClassId,
+        targetClassId,
+        sourceMultiplicity: "UNO",
+        targetMultiplicity: "UNO",
+        // Si tu API necesita tipo explícito, descomenta la siguiente línea:
+        // type: "ASSOCIATION",
+      });
+
+      setFeedback("Relacion creada desde el diagrama");
+      reloadModel();
+      onRefresh?.();
+    } catch (err) {
+      setError(resolveError(err));
+    } finally {
+      // Siempre limpiamos el estado de la acción rápida
+      setPendingLegendRelation(null);
+    }
+  },
+  // ya no dependemos de `relations` porque quitamos el check
+  [projectId, actorId, reloadModel, onRefresh, setError, setFeedback]
+);
 
   const handleLegendItemActivate = useCallback(
     async (itemId: UMLNotationItemId) => {
@@ -411,52 +408,49 @@ const [activeTab, setActiveTab] = useState<'clases' | 'estructura' | 'relaciones
   );
 
   const createRelationFromLegend = useCallback(
-    async (sourceClassId: string, targetClassId: string, itemId: UMLRelationItemId) => {
-      const alreadyExists = relations.some(
-        (relation) =>
-          relation.sourceClassId === sourceClassId && relation.targetClassId === targetClassId,
-      );
-      if (alreadyExists) {
-        setFeedback("Ya existe una relacion entre las clases seleccionadas.");
-        setPendingLegendRelation(null);
-        return;
-      }
-      const template = RELATION_LEGEND_TEMPLATES[itemId];
-      setError(null);
-      try {
-        const createdRelation = await createDomainRelation({
-          projectId,
-          actorId,
-          sourceClassId,
-          targetClassId,
-          sourceMultiplicity: template.sourceMultiplicity,
-          targetMultiplicity: template.targetMultiplicity,
-          name: template.name,
-          type: template.kind,
-        });
-        setModel((prev) => {
-          if (!prev) {
-            return prev;
-          }
-          if (prev.relations.some((relation) => relation.id === createdRelation.id)) {
-            return prev;
-          }
-          return { ...prev, relations: [...prev.relations, createdRelation] };
-        });
-        setSelectedRelationId(createdRelation.id);
-        const sourceName = getClassName(sourceClassId);
-        const targetName = getClassName(targetClassId);
-        setFeedback(`${template.successMessage} entre ${sourceName} y ${targetName}.`);
-        reloadModel();
-        onRefresh?.();
-      } catch (err) {
-        setError(resolveError(err));
-      } finally {
-        setPendingLegendRelation(null);
-      }
-    },
-    [actorId, getClassName, onRefresh, projectId, reloadModel, relations],
-  );
+  async (sourceClassId: string, targetClassId: string, itemId: UMLRelationItemId) => {
+    const template = RELATION_LEGEND_TEMPLATES[itemId];
+    setError(null);
+
+    try {
+      const createdRelation = await createDomainRelation({
+        projectId,
+        actorId,
+        sourceClassId,
+        targetClassId,
+        sourceMultiplicity: template.sourceMultiplicity,
+        targetMultiplicity: template.targetMultiplicity,
+        name: template.name,
+        type: template.kind,
+      });
+
+      // Actualiza el modelo local sin duplicar por ID (por seguridad)
+      setModel((prev) => {
+        if (!prev) return prev;
+        if (prev.relations.some((relation) => relation.id === createdRelation.id)) {
+          return prev;
+        }
+        return { ...prev, relations: [...prev.relations, createdRelation] };
+      });
+
+      setSelectedRelationId(createdRelation.id);
+
+      const sourceName = getClassName(sourceClassId);
+      const targetName = getClassName(targetClassId);
+      setFeedback(`${template.successMessage} entre ${sourceName} y ${targetName}.`);
+
+      reloadModel();
+      onRefresh?.();
+    } catch (err) {
+      setError(resolveError(err));
+    } finally {
+      setPendingLegendRelation(null);
+    }
+  },
+  // quitamos `relations` de dependencias porque ya no lo usamos
+  [actorId, getClassName, onRefresh, projectId, reloadModel]
+);
+
 
   const handleSelectClassFromDiagram = useCallback(
     (classId: string) => {

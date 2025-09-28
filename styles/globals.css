@@ -9,3 +9,16 @@
 
 html, body, #__next { height: 100%; }
 body { color: rgb(var(--fg)); background: rgb(var(--bg)); }
+.reactflow-domain-diagram .handle-invisible {
+  opacity: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  width: 10px !important;
+  height: 10px !important;
+  box-shadow: none !important;
+}
+
+/* (Opcional) feedback leve al pasar el mouse */
+.reactflow-domain-diagram .handle-invisible:hover {
+  opacity: 0.12 !important;
+}
