@@ -1,5 +1,5 @@
 "use client";
-
+import type { RelationKind } from "@/lib/api/domain-model";
 import type { ChangeEvent, FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -65,6 +65,7 @@ type RelationFormState = {
   targetRole: string;
   sourceMultiplicity: DomainMultiplicity;
   targetMultiplicity: DomainMultiplicity;
+  relationType: RelationKind;
 };
 
 type IdentityFormState = {
@@ -93,6 +94,7 @@ const INITIAL_RELATION_FORM: RelationFormState = {
   targetRole: "",
   sourceMultiplicity: "UNO",
   targetMultiplicity: "UNO",
+  relationType: "ASSOCIATION",
 };
 
 const INITIAL_IDENTITY_FORM: IdentityFormState = {
@@ -141,6 +143,7 @@ const RELATION_LEGEND_TEMPLATES: Record<
     sourceMultiplicity: DomainMultiplicity;
     targetMultiplicity: DomainMultiplicity;
     successMessage: string;
+    kind: RelationKind;
   }
 > = {
   association: {
@@ -149,6 +152,7 @@ const RELATION_LEGEND_TEMPLATES: Record<
     sourceMultiplicity: "UNO",
     targetMultiplicity: "UNO",
     successMessage: "Asociacion creada desde la leyenda",
+    kind: "ASSOCIATION",
   },
   aggregation: {
     label: "agregacion",
@@ -156,6 +160,7 @@ const RELATION_LEGEND_TEMPLATES: Record<
     sourceMultiplicity: "UNO",
     targetMultiplicity: "CERO_O_MAS",
     successMessage: "Agregacion creada desde la leyenda",
+    kind: "AGGREGATION",
   },
   composition: {
     label: "composicion",
@@ -163,6 +168,7 @@ const RELATION_LEGEND_TEMPLATES: Record<
     sourceMultiplicity: "UNO",
     targetMultiplicity: "UNO_O_MAS",
     successMessage: "Composicion creada desde la leyenda",
+    kind: "COMPOSITION",
   },
   generalization: {
     label: "generalizacion",
@@ -170,6 +176,7 @@ const RELATION_LEGEND_TEMPLATES: Record<
     sourceMultiplicity: "UNO",
     targetMultiplicity: "UNO",
     successMessage: "Generalizacion creada desde la leyenda",
+    kind: "GENERALIZATION",
   },
   realization: {
     label: "realizacion",
@@ -177,6 +184,7 @@ const RELATION_LEGEND_TEMPLATES: Record<
     sourceMultiplicity: "UNO",
     targetMultiplicity: "UNO",
     successMessage: "Realizacion creada desde la leyenda",
+    kind: "REALIZATION",
   },
   dependency: {
     label: "dependencia",
@@ -184,7 +192,25 @@ const RELATION_LEGEND_TEMPLATES: Record<
     sourceMultiplicity: "UNO",
     targetMultiplicity: "UNO",
     successMessage: "Dependencia creada desde la leyenda",
+    kind: "DEPENDENCY",
   },
+  link: {
+    label: "vinculo (sin flechas)",
+    name: "Vinculo",
+    sourceMultiplicity: "UNO",
+    targetMultiplicity: "UNO",
+    successMessage: "Vinculo creado desde la leyenda",
+    kind: "LINK",
+  },
+};
+const RELATION_KIND_BY_ITEM: Record<UMLRelationItemId, RelationKind> = {
+  association: "ASSOCIATION",
+  aggregation: "AGGREGATION",
+  composition: "COMPOSITION",
+  generalization: "GENERALIZATION",
+  realization: "REALIZATION",
+  dependency: "DEPENDENCY",
+  link: "LINK",
 };
 
 const CLASS_ITEM_ID_SET = new Set<string>(CLASS_ITEM_IDS);
@@ -406,6 +432,7 @@ const [activeTab, setActiveTab] = useState<'clases' | 'estructura' | 'relaciones
           sourceMultiplicity: template.sourceMultiplicity,
           targetMultiplicity: template.targetMultiplicity,
           name: template.name,
+          type: template.kind,
         });
         setModel((prev) => {
           if (!prev) {
@@ -753,6 +780,7 @@ const [activeTab, setActiveTab] = useState<'clases' | 'estructura' | 'relaciones
           targetRole: targetRole || null,
           sourceMultiplicity: relationForm.sourceMultiplicity,
           targetMultiplicity: relationForm.targetMultiplicity,
+          type: relationForm.relationType, 
         });
         setFeedback("Relacion creada");
       } else if (editingRelationId) {
@@ -765,6 +793,7 @@ const [activeTab, setActiveTab] = useState<'clases' | 'estructura' | 'relaciones
           targetRole: targetRole || null,
           sourceMultiplicity: relationForm.sourceMultiplicity,
           targetMultiplicity: relationForm.targetMultiplicity,
+          type: relationForm.relationType,
         });
         setFeedback("Relacion actualizada");
       }
@@ -787,6 +816,7 @@ const [activeTab, setActiveTab] = useState<'clases' | 'estructura' | 'relaciones
       targetRole: relation.targetRole ?? "",
       sourceMultiplicity: relation.sourceMultiplicity,
       targetMultiplicity: relation.targetMultiplicity,
+      relationType: relation.type,
     });
     scrollToSection("relations-panel");
   };
@@ -1265,128 +1295,39 @@ const [activeTab, setActiveTab] = useState<'clases' | 'estructura' | 'relaciones
     )}
 
     {/* ======== RELACIONES (solo form de la seleccionada) ======== */}
-    {activeTab === 'relaciones' && (
-      <div className="space-y-4">
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-gray-600">Relación seleccionada</label>
-          <select
-            value={selectedRelationId ?? ''}
-            onChange={(e) => {
-              const id = e.target.value || null;
-              setSelectedRelationId(id);
-              const rel = relations.find((r) => r.id === id);
-              if (rel) {
-                handleEditRelation(rel);
-              } else {
-                setRelationMode('create');
-                setEditingRelationId(null);
-                resetRelationForm(selectedClassId ?? undefined);
-              }
-            }}
-            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-          >
-            <option value="">(ninguna)</option>
-            {(selectedClassId ? relations.filter(r => r.sourceClassId === selectedClassId || r.targetClassId === selectedClassId) : relations)
-              .map((r) => (
-                <option key={r.id} value={r.id}>
-                  {`${getClassName(r.sourceClassId)} -> ${getClassName(r.targetClassId)}${r.name ? ` · ${r.name}` : ''}`}
-                </option>
-              ))}
-          </select>
-        </div>
-
-        <form className="space-y-3 rounded border border-gray-200 bg-gray-50 p-4" onSubmit={handleSubmitRelation}>
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-800">
-              {relationMode === 'create' ? 'Nueva relación' : 'Editar relación'}
-            </h3>
-            {relationMode === 'edit' ? (
-              <button
-                type="button"
-                className="text-xs text-gray-500 hover:text-gray-700"
-                onClick={() => resetRelationForm(selectedClassId ?? undefined)}
-              >
-                Limpiar
-              </button>
-            ) : null}
-          </div>
-
-          <section id="relations-panel" className="rounded-lg border border-gray-200 bg-white shadow-sm">
-  <header className="border-b border-gray-200 px-6 py-4">
-    <h2 className="text-lg font-semibold text-gray-900">Relaciones</h2>
-    <p className="text-sm text-gray-600">
-      Crea, edita o elimina relaciones. Se priorizan las asociadas a la clase seleccionada.
-    </p>
-  </header>
-
-  <div className="space-y-6 p-6">
-    {/* LISTA / SELECCIÓN */}
-    <div className="space-y-3">
-      {relationsToShow.length === 0 ? (
-        <p className="text-sm text-gray-500">No hay relaciones para mostrar.</p>
-      ) : (
-        <ul className="space-y-3">
-          {relationsToShow.map((relation) => {
-            const isSelected = relation.id === selectedRelationId;
-            return (
-              <li
-                key={relation.id}
-                onClick={() => handleSelectRelation(relation.id)}
-                className={`cursor-pointer rounded border px-4 py-3 text-sm transition ${
-                  isSelected
-                    ? 'border-blue-300 bg-blue-50 text-blue-900'
-                    : 'border-gray-200 bg-white text-gray-700 hover:border-blue-200'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className={`font-semibold ${isSelected ? 'text-blue-900' : 'text-gray-900'}`}>
-                      {getClassName(relation.sourceClassId)} → {getClassName(relation.targetClassId)}
-                    </p>
-                    {/* Si NO quieres mostrar el nombre de la relación, comenta esta línea */}
-                    {/* {relation.name ? (
-                      <p className={`text-xs ${isSelected ? 'text-blue-700' : 'text-gray-500'}`}>{relation.name}</p>
-                    ) : null} */}
-                    <p className={`text-xs ${isSelected ? 'text-blue-700' : 'text-gray-500'}`}>
-                      Origen: {renderMultiplicity(relation.sourceMultiplicity)}
-                      {' · '}Destino: {renderMultiplicity(relation.targetMultiplicity)}
-                    </p>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEditRelation(relation);
-                      }}
-                      className="rounded border border-blue-200 px-2 py-1 text-xs text-blue-700 hover:bg-blue-50"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteRelation(relation);
-                      }}
-                      className="rounded border border-rose-200 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
-                    >
-                      Eliminar
-                    </button>
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+    {/* ======== RELACIONES (solo form de la seleccionada) ======== */}
+{activeTab === 'relaciones' && (
+  <div className="space-y-4">
+    <div className="space-y-1">
+      <label className="text-xs font-medium text-gray-600">Relación seleccionada</label>
+      <select
+        value={selectedRelationId ?? ''}
+        onChange={(e) => {
+          const id = e.target.value || null;
+          setSelectedRelationId(id);
+          const rel = relations.find((r) => r.id === id);
+          if (rel) {
+            handleEditRelation(rel);
+          } else {
+            setRelationMode('create');
+            setEditingRelationId(null);
+            resetRelationForm(selectedClassId ?? undefined);
+          }
+        }}
+        className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+      >
+        <option value="">(ninguna)</option>
+        {(selectedClassId ? relations.filter(r => r.sourceClassId === selectedClassId || r.targetClassId === selectedClassId) : relations)
+          .map((r) => (
+            <option key={r.id} value={r.id}>
+              {`${getClassName(r.sourceClassId)} -> ${getClassName(r.targetClassId)}${r.name ? ` · ${r.name}` : ''}`}
+            </option>
+          ))}
+      </select>
     </div>
 
-    {/* FORM CREAR / EDITAR */}
-    <form
-      className="space-y-3 rounded border border-gray-200 bg-gray-50 p-4"
-      onSubmit={handleSubmitRelation}
-    >
+    {/* 🔧 Un solo form aquí */}
+    <form className="space-y-3 rounded border border-gray-200 bg-gray-50 p-4" onSubmit={handleSubmitRelation}>
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-800">
           {relationMode === 'create' ? 'Nueva relación' : 'Editar relación'}
@@ -1397,129 +1338,236 @@ const [activeTab, setActiveTab] = useState<'clases' | 'estructura' | 'relaciones
             className="text-xs text-gray-500 hover:text-gray-700"
             onClick={() => resetRelationForm(selectedClassId ?? undefined)}
           >
-            Cancelar
+            Limpiar
           </button>
         ) : null}
       </div>
 
-      <div className="space-y-3">
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-gray-600">Clase origen</label>
-          <select
-            value={relationForm.sourceClassId}
-            onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-              handleRelationFormChange('sourceClassId', e.target.value)
-            }
-            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-          >
-            <option value="">Seleccionar</option>
-            {classes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
+      <section id="relations-panel" className="rounded-lg border border-gray-200 bg-white shadow-sm">
+        <header className="border-b border-gray-200 px-6 py-4">
+          <h2 className="text-lg font-semibold text-gray-900">Relaciones</h2>
+          <p className="text-sm text-gray-600">
+            Crea, edita o elimina relaciones. Se priorizan las asociadas a la clase seleccionada.
+          </p>
+        </header>
 
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-gray-600">Clase destino</label>
-          <select
-            value={relationForm.targetClassId}
-            onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-              handleRelationFormChange('targetClassId', e.target.value)
-            }
-            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-          >
-            <option value="">Seleccionar</option>
-            {classes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Si quieres ocultar “Nombre”, simplemente comenta este bloque */}
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-gray-600">Nombre (opcional)</label>
-          <input
-            value={relationForm.name}
-            onChange={(e) => handleRelationFormChange('name', e.target.value)}
-            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-          />
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-600">Rol origen (opcional)</label>
-            <input
-              value={relationForm.sourceRole}
-              onChange={(e) => handleRelationFormChange('sourceRole', e.target.value)}
-              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-600">Rol destino (opcional)</label>
-            <input
-              value={relationForm.targetRole}
-              onChange={(e) => handleRelationFormChange('targetRole', e.target.value)}
-              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-600">Multiplicidad origen</label>
-            <select
-              value={relationForm.sourceMultiplicity}
-              onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                handleRelationFormChange('sourceMultiplicity', e.target.value as DomainMultiplicity)
-              }
-              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-            >
-              {MULTIPLICITY_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+        <div className="space-y-6 p-6">
+          {/* LISTA / SELECCIÓN */}
+          <div className="space-y-3">
+            {relationsToShow.length === 0 ? (
+              <p className="text-sm text-gray-500">No hay relaciones para mostrar.</p>
+            ) : (
+              <ul className="space-y-3">
+                {relationsToShow.map((relation) => {
+                  const isSelected = relation.id === selectedRelationId;
+                  return (
+                    <li
+                      key={relation.id}
+                      onClick={() => handleSelectRelation(relation.id)}
+                      className={`cursor-pointer rounded border px-4 py-3 text-sm transition ${
+                        isSelected
+                          ? 'border-blue-300 bg-blue-50 text-blue-900'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-blue-200'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className={`font-semibold ${isSelected ? 'text-blue-900' : 'text-gray-900'}`}>
+                            {getClassName(relation.sourceClassId)} → {getClassName(relation.targetClassId)}
+                          </p>
+                          <p className={`text-xs ${isSelected ? 'text-blue-700' : 'text-gray-500'}`}>
+                            Origen: {renderMultiplicity(relation.sourceMultiplicity)} ·
+                            {' '}Destino: {renderMultiplicity(relation.targetMultiplicity)}
+                          </p>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditRelation(relation);
+                            }}
+                            className="rounded border border-blue-200 px-2 py-1 text-xs text-blue-700 hover:bg-blue-50"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteRelation(relation);
+                            }}
+                            className="rounded border border-rose-200 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
 
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-600">Multiplicidad destino</label>
-            <select
-              value={relationForm.targetMultiplicity}
-              onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                handleRelationFormChange('targetMultiplicity', e.target.value as DomainMultiplicity)
-              }
-              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-            >
-              {MULTIPLICITY_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+          {/* CAMPOS DEL FORM (sin otro <form>) */}
+         <div className="space-y-3">
+  {/* Clase origen */}
+  <div className="space-y-1">
+    <label className="text-xs font-medium text-gray-600">Clase origen</label>
+    <select
+      value={relationForm.sourceClassId}
+      onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+        handleRelationFormChange('sourceClassId', e.target.value)
+      }
+      className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+    >
+      <option value="">Seleccionar</option>
+      {classes.map((c) => (
+        <option key={c.id} value={c.id}>
+          {c.name}
+        </option>
+      ))}
+    </select>
+  </div>
 
-        <button
-          type="submit"
-          className="w-full rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          {relationMode === 'create' ? 'Crear relación' : 'Actualizar relación'}
-        </button>
-      </div>
+  {/* Clase destino */}
+  <div className="space-y-1">
+    <label className="text-xs font-medium text-gray-600">Clase destino</label>
+    <select
+      value={relationForm.targetClassId}
+      onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+        handleRelationFormChange('targetClassId', e.target.value)
+      }
+      className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+    >
+      <option value="">Seleccionar</option>
+      {classes.map((c) => (
+        <option key={c.id} value={c.id}>
+          {c.name}
+        </option>
+      ))}
+    </select>
+  </div>
+
+  {/* Nombre (opcional) */}
+  <div className="space-y-1">
+    <label className="text-xs font-medium text-gray-600">Nombre (opcional)</label>
+    <input
+      value={relationForm.name}
+      onChange={(e) => handleRelationFormChange('name', e.target.value)}
+      className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+    />
+  </div>
+
+  {/* Tipo */}
+  <div className="space-y-1">
+    <label className="text-xs font-medium text-gray-600">Tipo</label>
+    <select
+      value={relationForm.relationType}
+      onChange={(e) =>
+        handleRelationFormChange('relationType', e.target.value as RelationKind)
+      }
+      className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+    >
+      <option value="ASSOCIATION">Asociación</option>
+      <option value="AGGREGATION">Agregación (◇)</option>
+      <option value="COMPOSITION">Composición (◆)</option>
+      <option value="GENERALIZATION">Generalización</option>
+      <option value="REALIZATION">Realización (discontinua)</option>
+      <option value="DEPENDENCY">Dependencia (discontinua)</option>
+      <option value="LINK">Sin flechas</option>
+    </select>
+  </div>
+
+  {/* Roles */}
+  <div className="grid gap-3 md:grid-cols-2">
+    <div className="space-y-1">
+      <label className="text-xs font-medium text-gray-600">Rol origen (opcional)</label>
+      <input
+        value={relationForm.sourceRole}
+        onChange={(e) => handleRelationFormChange('sourceRole', e.target.value)}
+        className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+      />
+    </div>
+    <div className="space-y-1">
+      <label className="text-xs font-medium text-gray-600">Rol destino (opcional)</label>
+      <input
+        value={relationForm.targetRole}
+        onChange={(e) => handleRelationFormChange('targetRole', e.target.value)}
+        className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+      />
+    </div>
+  </div>
+
+  {/* Multiplicidades */}
+  <div className="grid gap-3 md:grid-cols-2">
+    <div className="space-y-1">
+      <label className="text-xs font-medium text-gray-600">Multiplicidad origen</label>
+      <select
+        value={relationForm.sourceMultiplicity}
+        onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+          handleRelationFormChange('sourceMultiplicity', e.target.value as DomainMultiplicity)
+        }
+        className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+      >
+        {MULTIPLICITY_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </div>
+
+    <div className="space-y-1">
+      <label className="text-xs font-medium text-gray-600">Multiplicidad destino</label>
+      <select
+        value={relationForm.targetMultiplicity}
+        onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+          handleRelationFormChange('targetMultiplicity', e.target.value as DomainMultiplicity)
+        }
+        className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+      >
+        {MULTIPLICITY_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  </div>
+
+  {/* Botones extra (opcional) */}
+  {relationMode === 'edit' && editingRelationId ? (
+    <div className="flex justify-end">
+      <button
+        type="button"
+        onClick={() => {
+          const rel = relations.find(r => r.id === editingRelationId);
+          if (rel) { void handleDeleteRelation(rel); }
+        }}
+        className="rounded border border-rose-200 px-3 py-2 text-xs text-rose-600 hover:bg-rose-50"
+      >
+        Eliminar relación
+      </button>
+    </div>
+  ) : null}
+</div>
+
+        </div>
+      </section>
+
+      {/* ✅ ÚNICO botón submit del form */}
+      <button
+        type="submit"
+        className="w-full rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+      >
+        {relationMode === 'create' ? 'Crear relación' : 'Actualizar relación'}
+      </button>
     </form>
   </div>
-</section>
+)}
 
-
-          <button className="w-full rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-            {relationMode === 'create' ? 'Crear relación' : 'Actualizar relación'}
-          </button>
-        </form>
-      </div>
-    )}
   </div>
 </aside>
 

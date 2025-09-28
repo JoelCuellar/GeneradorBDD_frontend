@@ -21,6 +21,15 @@ export const DOMAIN_ATTRIBUTE_TYPES: DomainAttributeType[] = [
   "UUID",
   "TEXTO",
 ];
+export type RelationKind =
+  | "ASSOCIATION"
+  | "AGGREGATION"
+  | "COMPOSITION"
+  | "GENERALIZATION"
+  | "REALIZATION"
+  | "DEPENDENCY"
+  | "LINK";
+
 
 export type DomainMultiplicity = "UNO" | "CERO_O_UNO" | "UNO_O_MAS" | "CERO_O_MAS";
 
@@ -76,6 +85,7 @@ export interface DomainRelation {
   targetRole: string | null;
   sourceMultiplicity: DomainMultiplicity;
   targetMultiplicity: DomainMultiplicity;
+  type: RelationKind;
   createdAt: string;
   updatedAt: string;
 }
@@ -218,6 +228,7 @@ export interface CreateRelationPayload {
   targetRole?: string | null;
   sourceMultiplicity: DomainMultiplicity;
   targetMultiplicity: DomainMultiplicity;
+  type?: RelationKind;
 }
 
 export function createDomainRelation(payload: CreateRelationPayload) {
@@ -229,6 +240,7 @@ export function createDomainRelation(payload: CreateRelationPayload) {
       name: body.name ?? null,
       sourceRole: body.sourceRole ?? null,
       targetRole: body.targetRole ?? null,
+      type: body.type ?? "ASSOCIATION",
     },
   });
 }
@@ -242,6 +254,7 @@ export interface UpdateRelationPayload {
   targetRole?: string | null;
   sourceMultiplicity?: DomainMultiplicity;
   targetMultiplicity?: DomainMultiplicity;
+  type?: RelationKind;
 }
 
 export function updateDomainRelation(payload: UpdateRelationPayload) {
@@ -253,6 +266,7 @@ export function updateDomainRelation(payload: UpdateRelationPayload) {
       name: body.name ?? null,
       sourceRole: body.sourceRole ?? null,
       targetRole: body.targetRole ?? null,
+      type: body.type,
     },
   });
 }

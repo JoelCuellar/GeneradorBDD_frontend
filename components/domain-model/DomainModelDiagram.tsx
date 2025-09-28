@@ -21,9 +21,9 @@ import ReactFlow, {
 } from "reactflow";
 import "reactflow/dist/style.css";
 import MultiplicityEdge from "./MultiplicityEdge";
-import type { DomainClass, DomainRelation } from "@/lib/api/domain-model";
+import type { DomainClass, DomainRelation, DomainMultiplicity } from "@/lib/api/domain-model";
 import { renderMultiplicity } from "./utils";
-import type { DomainMultiplicity } from "@/lib/api/domain-model";
+
 type DiagramNodeData = {
   domainClass: DomainClass;
   selected: boolean;
@@ -45,17 +45,18 @@ type EdgeData = {
   selected: boolean;
   sourceMultiplicity: DomainMultiplicity; // para el chip en el extremo source
   targetMultiplicity: DomainMultiplicity; // para el chip en el extremo target
+  labelText?: string; 
 };
+
 const nodeTypes = {
   classNode: ClassNode,
 };
-
 
 type XYPosition = { x: number; y: number };
 
 const EDGE_COLOR = "#2563eb";
 const EDGE_COLOR_SELECTED = "#1d4ed8";
-const EDGE_LABEL_COLOR = "#1f2937";
+// const EDGE_LABEL_COLOR = "#1f2937"; // si lo usas, agrégalo a labelStyle
 
 export default function DomainModelDiagram({
   classes,
@@ -68,15 +69,15 @@ export default function DomainModelDiagram({
 }: DomainModelDiagramProps) {
   const [positions, setPositions] = useState<Record<string, XYPosition>>({});
   const [nodes, setNodes, onNodesChangeInternal] = useNodesState<DiagramNodeData>([]);
- const [edges, setEdges] = useEdgesState<EdgeData>([]);
+  const [edges, setEdges] = useEdgesState<EdgeData>([]);
 
-  // Mapa id -> nombre de clase (para evitar mostrar UUIDs en las etiquetas)
+  // id -> nombre de clase (para etiquetas legibles)
   const classNameById = useMemo(
     () => Object.fromEntries(classes.map((c) => [c.id, c.name] as const)),
     [classes],
   );
 
-  // Posicionamiento inicial en grilla + persistencia de posiciones del usuario
+  // Posicionamiento inicial en grilla + saneo cuando cambian clases
   useEffect(() => {
     setPositions((prev) => {
       const next: Record<string, XYPosition> = { ...prev };
@@ -116,38 +117,38 @@ export default function DomainModelDiagram({
     setNodes(mappedNodes);
   }, [classes, selectedClassId, positions, setNodes, handleSelectClass]);
 
-  // Construcción de aristas con etiquetas legibles
-  useEffect(() => {
-  const mappedEdges: Edge<EdgeData>[] = relations.map((relation) => {
-    const isSelected = relation.id === selectedRelationId;
-    return {
-      id: relation.id,
-      source: relation.sourceClassId,
-      target: relation.targetClassId,
-      type: "multiplicity", // ← edge personalizado
-      data: {
-        relation,
-        selected: isSelected,
-        sourceMultiplicity: relation.sourceMultiplicity,
-        targetMultiplicity: relation.targetMultiplicity,
-      },
-      markerEnd: {
-        type: MarkerType.ArrowClosed,
-        color: isSelected ? EDGE_COLOR_SELECTED : EDGE_COLOR,
-        width: 18,
-        height: 18,
-      },
-      style: {
-        stroke: isSelected ? EDGE_COLOR_SELECTED : EDGE_COLOR,
-        strokeWidth: isSelected ? 2.4 : 1.5,
-      },
-      animated: isSelected,
-      zIndex: isSelected ? 2 : 0,
-    };
-  });
-  setEdges(mappedEdges);
-}, [relations, selectedRelationId, setEdges]);
+  // Edge types (edge personalizado que muestra multiplicidades)
+  const edgeTypes = useMemo(() => ({ multiplicity: MultiplicityEdge }), []);
 
+  // Construcción de aristas con etiquetas legibles y estilo por tipo
+  useEffect(() => {
+    const mappedEdges: Edge<EdgeData>[] = relations.map((relation) => {
+      const isSelected = relation.id === selectedRelationId;
+      const s = styleFor(relation.type);
+
+      // ← IMPORTANTE: pasar 2 argumentos (relation + mapa de nombres)
+      const labelText = `${s.badge ? s.badge + " " : ""}${formatRelationLabel(relation, classNameById)}`.trim();
+
+      return {
+        id: relation.id,
+        source: relation.sourceClassId,
+        target: relation.targetClassId,
+        type: "multiplicity",
+        data: {
+          relation,
+          selected: isSelected,
+          sourceMultiplicity: relation.sourceMultiplicity,
+          targetMultiplicity: relation.targetMultiplicity,
+        },
+        label: labelText, // ← ahora sí mostramos el texto
+        
+        style: s.dash ? { strokeDasharray: s.dash, strokeWidth: 2 } : { strokeWidth: 2 },
+        animated: isSelected,
+        zIndex: isSelected ? 2 : 0,
+      };
+    });
+    setEdges(mappedEdges);
+  }, [relations, selectedRelationId, classNameById, setEdges]);
 
   // Guardar posiciones al mover
   const handleNodesChange = useCallback(
@@ -173,7 +174,7 @@ export default function DomainModelDiagram({
     () => new Set(relations.map((r) => `${r.sourceClassId}::${r.targetClassId}`)),
     [relations],
   );
-const edgeTypes = useMemo(() => ({ multiplicity: MultiplicityEdge }), []);
+
   const handleConnect = useCallback(
     (connection: Connection) => {
       if (!onCreateRelation || !connection.source || !connection.target) return;
@@ -184,14 +185,14 @@ const edgeTypes = useMemo(() => ({ multiplicity: MultiplicityEdge }), []);
     },
     [onCreateRelation, relationPairs],
   );
-const handleEdgeClick = useCallback(
-  (_: MouseEvent, edge: Edge<EdgeData>) => {
-    onSelectClass?.("");
-    onSelectRelation?.(edge.id as string ?? null);
-  },
-  [onSelectRelation, onSelectClass],
-);
 
+  const handleEdgeClick = useCallback(
+    (_: MouseEvent, edge: Edge<EdgeData>) => {
+      onSelectClass?.("");
+      onSelectRelation?.(String(edge.id));
+    },
+    [onSelectRelation, onSelectClass],
+  );
 
   const handlePaneClick = useCallback(() => {
     onSelectRelation?.(null);
@@ -199,7 +200,6 @@ const handleEdgeClick = useCallback(
   }, [onSelectRelation, onSelectClass]);
 
   return (
-    // Aseguramos altura explícita para que el tablero SIEMPRE se vea
     <div style={{ height: "75vh", width: "100%" }}>
       <ReactFlow
         nodes={nodes}
@@ -238,6 +238,19 @@ const handleEdgeClick = useCallback(
       </ReactFlow>
     </div>
   );
+}
+
+function styleFor(kind: string) {
+  switch (kind) {
+    case "REALIZATION":   return { dash: "6 4", end: MarkerType.Arrow };         // triángulo hueco aprox + dashed
+    case "GENERALIZATION":return { dash: undefined, end: MarkerType.Arrow };     // triángulo hueco aprox
+    case "DEPENDENCY":    return { dash: "4 3", end: MarkerType.Arrow };         // dashed
+    case "AGGREGATION":   return { dash: undefined, end: MarkerType.ArrowClosed, badge: "◇" };
+    case "COMPOSITION":   return { dash: undefined, end: MarkerType.ArrowClosed, badge: "◆" };
+    case "LINK":          return { dash: undefined, end: undefined };            // sin flechas
+    case "ASSOCIATION":
+    default:              return { dash: undefined, end: MarkerType.ArrowClosed };
+  }
 }
 
 function ClassNode({ data }: NodeProps<DiagramNodeData>) {
@@ -308,7 +321,6 @@ function ClassNode({ data }: NodeProps<DiagramNodeData>) {
     </div>
   );
 }
-
 
 const computeGridPosition = (index: number, total: number): XYPosition => {
   if (total === 0) return { x: 0, y: 0 };

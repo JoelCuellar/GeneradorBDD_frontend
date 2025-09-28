@@ -12,6 +12,7 @@ export const RELATION_ITEM_IDS = [
   "generalization",
   "realization",
   "dependency",
+  "link",
 ] as const;
 export type UMLRelationItemId = typeof RELATION_ITEM_IDS[number];
 
@@ -37,6 +38,7 @@ const REL_LABEL: Record<UMLRelationItemId, { title: string; desc?: string }> = {
   generalization: { title: "Generalizacion", desc: "Herencia clase padre/hija." },
   realization: { title: "Realizacion", desc: "Implementacion de una interfaz." },
   dependency: { title: "Dependencia", desc: "Acoplamiento ligero no estructural." },
+  link: { title: "Vinculo (sin flechas)", desc: "Conexion sin direccion; linea simple." },
 };
 
 // ===== Mini-graficos (SVG) =====
@@ -180,6 +182,14 @@ function GlyphDependency() {
     </svg>
   );
 }
+function GlyphLink() {
+  // línea simple sin cabezas
+  return (
+    <svg width="56" height="34" viewBox="0 0 56 34" aria-hidden>
+      <line x1="8" y1="17" x2="48" y2="17" stroke={stroke} strokeWidth={1.6} strokeLinecap="round" />
+    </svg>
+  );
+}
 
 function Glyph({ id }: { id: UMLNotationItemId }) {
   switch (id) {
@@ -205,6 +215,8 @@ function Glyph({ id }: { id: UMLNotationItemId }) {
       return <GlyphRealization />;
     case "dependency":
       return <GlyphDependency />;
+    case "link":
+      return <GlyphLink />;
     default:
       return null;
   }
