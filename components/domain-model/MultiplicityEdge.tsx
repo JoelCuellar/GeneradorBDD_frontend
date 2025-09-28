@@ -15,6 +15,7 @@ type EdgeData = {
   selected?: boolean;
   sourceMultiplicity: DomainMultiplicity;
   targetMultiplicity: DomainMultiplicity;
+  
 };
 
 const BADGE_OFFSET = 18;

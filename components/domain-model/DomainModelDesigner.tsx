@@ -194,6 +194,16 @@ const RELATION_LEGEND_TEMPLATES: Record<
     successMessage: "Dependencia creada desde la leyenda",
     kind: "DEPENDENCY",
   },
+  manyToManyJoin: {
+    label: "muchos a muchos (clase intermedia)", 
+    kind: "LINK",
+    // estos valores no se usan directamente (invocamos el helper),
+    // los dejamos solo por compatibilidad de tipos:
+    sourceMultiplicity: "UNO_O_MAS",
+    targetMultiplicity: "UNO_O_MAS",
+    name: "M:N",
+    successMessage: "Clase intermedia M:N creada",
+  },
   link: {
     label: "vinculo (sin flechas)",
     name: "Vinculo",
@@ -211,6 +221,7 @@ const RELATION_KIND_BY_ITEM: Record<UMLRelationItemId, RelationKind> = {
   realization: "REALIZATION",
   dependency: "DEPENDENCY",
   link: "LINK",
+  manyToManyJoin: "LINK", 
 };
 
 const CLASS_ITEM_ID_SET = new Set<string>(CLASS_ITEM_IDS);
@@ -322,6 +333,69 @@ const [activeTab, setActiveTab] = useState<'clases' | 'estructura' | 'relaciones
     [scrollToSection],
   );
 
+  const createManyToManyWithJoinClass = useCallback(
+  async (
+    sourceClassId: string,
+    targetClassId: string,
+    opts?: { name?: string; keepDirectRelation?: boolean; relationIdToReplace?: string }
+  ) => {
+    const getName = (id: string) => classes.find(c => c.id === id)?.name ?? "Clase";
+    const sourceName = getName(sourceClassId);
+    const targetName = getName(targetClassId);
+
+    // 1) nombre por defecto “A_B”
+    const joinName =
+      (opts?.name?.trim() || `${sourceName}_${targetName}`.replace(/\s+/g, "_")).slice(0, 150);
+
+    // 2) crear clase intermedia
+    const joinClass = await createDomainClass({
+      projectId,
+      actorId,
+      name: joinName,
+      description: "Clase intermedia generada automáticamente (M:N).",
+    });
+
+    // 3) dos relaciones *..1 (join -> A) y (join -> B)
+    await createDomainRelation({
+      projectId,
+      actorId,
+      sourceClassId: joinClass.id,
+      targetClassId: sourceClassId,
+      sourceMultiplicity: "CERO_O_MAS",
+      targetMultiplicity: "UNO",
+      type: "ASSOCIATION",
+      name: `${joinName}→${sourceName}`,
+    });
+
+    await createDomainRelation({
+      projectId,
+      actorId,
+      sourceClassId: joinClass.id,
+      targetClassId: targetClassId,
+      sourceMultiplicity: "CERO_O_MAS",
+      targetMultiplicity: "UNO",
+      type: "ASSOCIATION",
+      name: `${joinName}→${targetName}`,
+    });
+
+    // 4) si venía de convertir una relación directa, elimínala
+    if (opts?.relationIdToReplace && !opts?.keepDirectRelation) {
+      try {
+        await deleteDomainRelation({ projectId, actorId, relationId: opts.relationIdToReplace });
+      } catch {/* noop */}
+    }
+
+    setFeedback(`Clase intermedia "${joinName}" creada para ${sourceName} ↔ ${targetName}.`);
+    reloadModel();
+    onRefresh?.();
+
+    return joinClass.id;
+  },
+  [actorId, classes, onRefresh, projectId, reloadModel, setFeedback]   // ✅ dependencias corregidas
+);
+
+
+
   const handleQuickCreateRelation = useCallback(
   async (sourceClassId: string, targetClassId: string) => {
     // Permitimos duplicados: sin chequeos previos de existencia
@@ -409,9 +483,22 @@ const [activeTab, setActiveTab] = useState<'clases' | 'estructura' | 'relaciones
 
   const createRelationFromLegend = useCallback(
   async (sourceClassId: string, targetClassId: string, itemId: UMLRelationItemId) => {
+    // ⭐ intercepta M:N con clase intermedia
+    if (itemId === "manyToManyJoin") {
+      setError(null);
+      try {
+        await createManyToManyWithJoinClass(sourceClassId, targetClassId);
+      } catch (err) {
+        setError(resolveError(err));
+      } finally {
+        setPendingLegendRelation(null);
+      }
+      return; // ✅ no sigas con createDomainRelation
+    }
+
+    // --- creación normal (como ya lo tenías) ---
     const template = RELATION_LEGEND_TEMPLATES[itemId];
     setError(null);
-
     try {
       const createdRelation = await createDomainRelation({
         projectId,
@@ -424,12 +511,9 @@ const [activeTab, setActiveTab] = useState<'clases' | 'estructura' | 'relaciones
         type: template.kind,
       });
 
-      // Actualiza el modelo local sin duplicar por ID (por seguridad)
       setModel((prev) => {
         if (!prev) return prev;
-        if (prev.relations.some((relation) => relation.id === createdRelation.id)) {
-          return prev;
-        }
+        if (prev.relations.some((relation) => relation.id === createdRelation.id)) return prev;
         return { ...prev, relations: [...prev.relations, createdRelation] };
       });
 
@@ -447,9 +531,9 @@ const [activeTab, setActiveTab] = useState<'clases' | 'estructura' | 'relaciones
       setPendingLegendRelation(null);
     }
   },
-  // quitamos `relations` de dependencias porque ya no lo usamos
-  [actorId, getClassName, onRefresh, projectId, reloadModel]
+  [actorId, getClassName, onRefresh, projectId, reloadModel, createManyToManyWithJoinClass]
 );
+
 
 
   const handleSelectClassFromDiagram = useCallback(

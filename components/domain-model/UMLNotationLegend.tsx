@@ -13,6 +13,7 @@ export const RELATION_ITEM_IDS = [
   "realization",
   "dependency",
   "link",
+  "manyToManyJoin"
 ] as const;
 export type UMLRelationItemId = typeof RELATION_ITEM_IDS[number];
 
@@ -39,6 +40,7 @@ const REL_LABEL: Record<UMLRelationItemId, { title: string; desc?: string }> = {
   realization: { title: "Realizacion", desc: "Implementacion de una interfaz." },
   dependency: { title: "Dependencia", desc: "Acoplamiento ligero no estructural." },
   link: { title: "Vinculo (sin flechas)", desc: "Conexion sin direccion; linea simple." },
+  manyToManyJoin:{ title: "Muchos a muchos (clase intermedia)", desc: "Crea una clase intermedia y dos relaciones 0..*→1." },
 };
 
 // ===== Mini-graficos (SVG) =====

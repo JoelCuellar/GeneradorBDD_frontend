@@ -137,7 +137,7 @@ const onEdgeUpdate = useCallback<OnEdgeUpdateFunc>((oldEdge, newConn) => {
   const mappedEdges: Edge<EdgeData>[] = relations.map((relation) => {
     const isSelected = relation.id === selectedRelationId;
     const s = styleFor(relation.type);
-
+    const isJoinLeg = joinMeta.joinEdgeIds.has(relation.id);
     const labelText = `${s.badge ? s.badge + " " : ""}${formatRelationLabel(relation, classNameById)}`.trim();
 
     return {
@@ -149,6 +149,8 @@ const onEdgeUpdate = useCallback<OnEdgeUpdateFunc>((oldEdge, newConn) => {
         relation,
         selected: isSelected,
         sourceMultiplicity: relation.sourceMultiplicity,
+        orthogonal: isJoinLeg ? true : undefined,
+        labelYOffset: isJoinLeg ? 8 : 0,
         targetMultiplicity: relation.targetMultiplicity,
         labelText,
       },
@@ -156,9 +158,12 @@ const onEdgeUpdate = useCallback<OnEdgeUpdateFunc>((oldEdge, newConn) => {
       selectable: true,
       updatable: true,                // ✅ en tu RF es boolean, no 'both'
       interactionWidth: 28,           // hitbox grande para seleccionarlo fácil
-      sourceHandle: edgeAnchors[relation.id]?.sourceHandle,
-      targetHandle: edgeAnchors[relation.id]?.targetHandle,
-      style: s.dash ? { strokeDasharray: s.dash, strokeWidth: 2 } : { strokeWidth: 2 },
+      sourceHandle: isJoinLeg ? "b-s-8" : edgeAnchors[relation.id]?.sourceHandle,
+      targetHandle: isJoinLeg ? "t-t-8" : edgeAnchors[relation.id]?.targetHandle,
+      style: isJoinLeg
+       ? { strokeDasharray: "4 3", strokeWidth: 2 }
+       : (s.dash ? { strokeDasharray: s.dash, strokeWidth: 2 } : { strokeWidth: 2 }),
+     markerEnd: isJoinLeg ? undefined : undefined, // (tu edge custom agrega marcador; aquí lo anulamos)
       animated: isSelected,
       zIndex: isSelected ? 3 : 1,
     };
@@ -192,6 +197,27 @@ const onEdgeUpdate = useCallback<OnEdgeUpdateFunc>((oldEdge, newConn) => {
     () => new Set(relations.map((r) => `${r.sourceClassId}::${r.targetClassId}`)),
     [relations],
   );
+  const joinMeta = useMemo(() => {
+  const bySource = new Map<string, DomainRelation[]>();
+  relations.forEach((r) => {
+    if (!bySource.has(r.sourceClassId)) bySource.set(r.sourceClassId, []);
+    bySource.get(r.sourceClassId)!.push(r);
+  });
+
+  const joinEdgeIds = new Set<string>();
+  bySource.forEach((out, classId) => {
+    if (
+      out.length === 2 &&
+      out.every(r => r.sourceMultiplicity === "CERO_O_MAS" && r.targetMultiplicity === "UNO") &&
+      out[0].targetClassId !== out[1].targetClassId
+    ) {
+      joinEdgeIds.add(out[0].id);
+      joinEdgeIds.add(out[1].id);
+    }
+  });
+
+  return { joinEdgeIds };
+}, [relations]);
 
   const handleConnect = useCallback(
     (connection: Connection) => {
