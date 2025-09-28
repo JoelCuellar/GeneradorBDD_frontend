@@ -1,4 +1,3 @@
-
 "use client";
 
 import clsx from "clsx";
@@ -21,10 +20,10 @@ import ReactFlow, {
   useNodesState,
 } from "reactflow";
 import "reactflow/dist/style.css";
-
+import MultiplicityEdge from "./MultiplicityEdge";
 import type { DomainClass, DomainRelation } from "@/lib/api/domain-model";
 import { renderMultiplicity } from "./utils";
-
+import type { DomainMultiplicity } from "@/lib/api/domain-model";
 type DiagramNodeData = {
   domainClass: DomainClass;
   selected: boolean;
@@ -41,9 +40,16 @@ interface DomainModelDiagramProps {
   onCreateRelation?: (sourceId: string, targetId: string) => void;
 }
 
+type EdgeData = {
+  relation: DomainRelation;               // lo dejamos para onClick
+  selected: boolean;
+  sourceMultiplicity: DomainMultiplicity; // para el chip en el extremo source
+  targetMultiplicity: DomainMultiplicity; // para el chip en el extremo target
+};
 const nodeTypes = {
   classNode: ClassNode,
 };
+
 
 type XYPosition = { x: number; y: number };
 
@@ -62,22 +68,25 @@ export default function DomainModelDiagram({
 }: DomainModelDiagramProps) {
   const [positions, setPositions] = useState<Record<string, XYPosition>>({});
   const [nodes, setNodes, onNodesChangeInternal] = useNodesState<DiagramNodeData>([]);
-  const [edges, setEdges] = useEdgesState<{ relation: DomainRelation; selected: boolean }>([]);
+ const [edges, setEdges] = useEdgesState<EdgeData>([]);
 
+  // Mapa id -> nombre de clase (para evitar mostrar UUIDs en las etiquetas)
+  const classNameById = useMemo(
+    () => Object.fromEntries(classes.map((c) => [c.id, c.name] as const)),
+    [classes],
+  );
+
+  // Posicionamiento inicial en grilla + persistencia de posiciones del usuario
   useEffect(() => {
     setPositions((prev) => {
       const next: Record<string, XYPosition> = { ...prev };
       const present = new Set<string>();
       classes.forEach((domainClass, index) => {
         present.add(domainClass.id);
-        if (!next[domainClass.id]) {
-          next[domainClass.id] = computeGridPosition(index, classes.length);
-        }
+        if (!next[domainClass.id]) next[domainClass.id] = computeGridPosition(index, classes.length);
       });
       Object.keys(next).forEach((id) => {
-        if (!present.has(id)) {
-          delete next[id];
-        }
+        if (!present.has(id)) delete next[id];
       });
       return next;
     });
@@ -91,6 +100,7 @@ export default function DomainModelDiagram({
     [onSelectClass, onSelectRelation],
   );
 
+  // Construcción de nodos
   useEffect(() => {
     const mappedNodes: Node<DiagramNodeData>[] = classes.map((domainClass, index) => ({
       id: domainClass.id,
@@ -106,48 +116,40 @@ export default function DomainModelDiagram({
     setNodes(mappedNodes);
   }, [classes, selectedClassId, positions, setNodes, handleSelectClass]);
 
+  // Construcción de aristas con etiquetas legibles
   useEffect(() => {
-    const mappedEdges: Edge<{ relation: DomainRelation; selected: boolean }>[] = relations.map((relation) => {
-      const isSelected = relation.id === selectedRelationId;
-      return {
-        id: relation.id,
-        source: relation.sourceClassId,
-        target: relation.targetClassId,
-        type: "smoothstep",
-        label: formatRelationLabel(relation),
-        data: { relation, selected: isSelected },
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: isSelected ? EDGE_COLOR_SELECTED : EDGE_COLOR,
-          width: 18,
-          height: 18,
-        },
-        style: {
-          stroke: isSelected ? EDGE_COLOR_SELECTED : EDGE_COLOR,
-          strokeWidth: isSelected ? 2.4 : 1.5,
-        },
-        animated: isSelected,
-        labelStyle: {
-          fill: isSelected ? "#111827" : EDGE_LABEL_COLOR,
-          fontSize: isSelected ? 12 : 11,
-          fontWeight: isSelected ? 600 : 500,
-        },
-        labelBgPadding: [6, 3],
-        labelBgBorderRadius: 4,
-        labelBgStyle: {
-          fill: isSelected ? "rgba(219,234,254,0.95)" : "rgba(255,255,255,0.9)",
-          stroke: isSelected ? "#bfdbfe" : "#dbeafe",
-          strokeWidth: 0.6,
-        },
-        zIndex: isSelected ? 2 : 0,
-      };
-    });
-    setEdges(mappedEdges);
-  }, [relations, setEdges, selectedRelationId]);
+  const mappedEdges: Edge<EdgeData>[] = relations.map((relation) => {
+    const isSelected = relation.id === selectedRelationId;
+    return {
+      id: relation.id,
+      source: relation.sourceClassId,
+      target: relation.targetClassId,
+      type: "multiplicity", // ← edge personalizado
+      data: {
+        relation,
+        selected: isSelected,
+        sourceMultiplicity: relation.sourceMultiplicity,
+        targetMultiplicity: relation.targetMultiplicity,
+      },
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        color: isSelected ? EDGE_COLOR_SELECTED : EDGE_COLOR,
+        width: 18,
+        height: 18,
+      },
+      style: {
+        stroke: isSelected ? EDGE_COLOR_SELECTED : EDGE_COLOR,
+        strokeWidth: isSelected ? 2.4 : 1.5,
+      },
+      animated: isSelected,
+      zIndex: isSelected ? 2 : 0,
+    };
+  });
+  setEdges(mappedEdges);
+}, [relations, selectedRelationId, setEdges]);
 
-  const isNodePositionChange = (change: NodeChange): change is NodePositionChange =>
-    change.type === "position" && change.position != null;
 
+  // Guardar posiciones al mover
   const handleNodesChange = useCallback(
     (changes: NodeChange[]) => {
       onNodesChangeInternal(changes);
@@ -156,7 +158,7 @@ export default function DomainModelDiagram({
         setPositions((prev) => {
           const next = { ...prev };
           moved.forEach((change) => {
-            if (!change.position) return;
+            if (!("position" in change) || !change.position) return;
             next[change.id] = change.position;
           });
           return next;
@@ -166,11 +168,12 @@ export default function DomainModelDiagram({
     [onNodesChangeInternal],
   );
 
+  // Evitar duplicados y auto-bucles
   const relationPairs = useMemo(
-    () => new Set(relations.map((relation) => `${relation.sourceClassId}::${relation.targetClassId}`)),
+    () => new Set(relations.map((r) => `${r.sourceClassId}::${r.targetClassId}`)),
     [relations],
   );
-
+const edgeTypes = useMemo(() => ({ multiplicity: MultiplicityEdge }), []);
   const handleConnect = useCallback(
     (connection: Connection) => {
       if (!onCreateRelation || !connection.source || !connection.target) return;
@@ -181,36 +184,36 @@ export default function DomainModelDiagram({
     },
     [onCreateRelation, relationPairs],
   );
+const handleEdgeClick = useCallback(
+  (_: MouseEvent, edge: Edge<EdgeData>) => {
+    onSelectClass?.("");
+    onSelectRelation?.(edge.id as string ?? null);
+  },
+  [onSelectRelation, onSelectClass],
+);
 
-  const handleEdgeClick = useCallback(
-    (_event: MouseEvent, edge: Edge<{ relation: DomainRelation }>) => {
-      onSelectRelation?.(edge.id);
-    },
-    [onSelectRelation],
-  );
 
   const handlePaneClick = useCallback(() => {
     onSelectRelation?.(null);
-  }, [onSelectRelation]);
+    onSelectClass?.("");
+  }, [onSelectRelation, onSelectClass]);
 
   return (
-    <div className="h-[680px] rounded-lg border border-gray-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-        <div>
-          <h3 className="text-sm font-semibold text-gray-900">Diagrama de clases UML (version 2.5)</h3>
-          <p className="text-xs text-gray-500">
-            Arrastra y conecta para proponer relaciones. Selecciona nodos o aristas para ver sus detalles.
-          </p>
-        </div>
-      </div>
+    // Aseguramos altura explícita para que el tablero SIEMPRE se vea
+    <div style={{ height: "75vh", width: "100%" }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         onNodesChange={handleNodesChange}
         onConnect={handleConnect}
         onEdgeClick={handleEdgeClick}
         onPaneClick={handlePaneClick}
+        panOnScroll
+        panOnDrag
+        selectionOnDrag
+        zoomOnDoubleClick={false}
         fitView
         fitViewOptions={{ padding: 0.12, minZoom: 0.35, maxZoom: 1.6 }}
         connectionMode={ConnectionMode.Loose}
@@ -223,8 +226,8 @@ export default function DomainModelDiagram({
         <MiniMap
           pannable
           zoomable
-          nodeStrokeColor={(node) => (node.data?.selected ? EDGE_COLOR_SELECTED : "#9ca3af")}
-          nodeColor={(node) => (node.data?.selected ? "#dbeafe" : "#f9fafb")}
+          nodeStrokeColor={(n) => (n.data?.selected ? EDGE_COLOR_SELECTED : "#9ca3af")}
+          nodeColor={(n) => (n.data?.selected ? "#dbeafe" : "#f9fafb")}
         />
         <Controls
           position="bottom-right"
@@ -239,33 +242,60 @@ export default function DomainModelDiagram({
 
 function ClassNode({ data }: NodeProps<DiagramNodeData>) {
   const { domainClass, selected, onSelect } = data;
+  const OFFSETS = ["15%", "50%", "85%"]; // posiciones verticales
 
   return (
     <div
-      className={clsx(
-        "relative w-[240px] cursor-pointer rounded-lg border bg-white text-left shadow-sm transition",
-        selected
-          ? "border-blue-500 ring-2 ring-blue-200"
-          : "border-gray-300 hover:border-blue-300 hover:shadow",
-      )}
       onClick={() => onSelect(domainClass.id)}
+      className={clsx(
+        "min-w-[220px] max-w-[260px] rounded-lg border bg-white shadow-sm",
+        selected ? "border-indigo-500 ring-2 ring-indigo-200" : "border-gray-300",
+      )}
     >
-      <Handle position={Position.Top} type="target" className="h-2 w-2 !bg-blue-400 opacity-0 transition-opacity hover:opacity-100" />
-      <Handle position={Position.Left} type="target" className="h-2 w-2 !bg-blue-400 opacity-0 transition-opacity hover:opacity-100" />
-      <Handle position={Position.Right} type="source" className="h-2 w-2 !bg-blue-400 opacity-0 transition-opacity hover:opacity-100" />
-      <Handle position={Position.Bottom} type="source" className="h-2 w-2 !bg-blue-400 opacity-0 transition-opacity hover:opacity-100" />
-      <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-3 py-2">
-        <span className="text-sm font-semibold text-gray-900">{domainClass.name}</span>
-        <span className="text-[11px] uppercase tracking-wide text-gray-400">{domainClass.attributes.length} atr</span>
+      {/* LEFT: targets */}
+      {OFFSETS.map((top, i) => (
+        <Handle
+          key={`L${i}`}
+          id={`L${i}`}
+          type="target"
+          position={Position.Left}
+          style={{ top }}
+          className="!h-2 !w-2 !bg-indigo-500"
+        />
+      ))}
+      {/* RIGHT: sources */}
+      {OFFSETS.map((top, i) => (
+        <Handle
+          key={`R${i}`}
+          id={`R${i}`}
+          type="source"
+          position={Position.Right}
+          style={{ top }}
+          className="!h-2 !w-2 !bg-indigo-500"
+        />
+      ))}
+
+      <div className="border-b px-3 py-1.5">
+        <div className="flex items-center justify-between">
+          <h4 className="truncate text-sm font-semibold text-gray-900">{domainClass.name}</h4>
+          <span className="rounded bg-gray-100 px-2 py-[2px] text-[10px] text-gray-600">
+            {domainClass.attributes.length} attrs
+          </span>
+        </div>
+        {domainClass.description ? (
+          <p className="mt-1 line-clamp-2 text-[11px] text-gray-500">{domainClass.description}</p>
+        ) : null}
       </div>
-      <div className="max-h-40 overflow-hidden px-3 py-2">
-        {domainClass.attributes.length === 0 ? (
-          <p className="text-xs italic text-gray-400">Sin atributos</p>
-        ) : (
-          <ul className="space-y-1 text-xs text-gray-600">
+
+      {domainClass.attributes.length > 0 && (
+        <div className="px-3 py-2">
+          <ul className="space-y-1.5">
             {domainClass.attributes.slice(0, 6).map((attribute) => (
-              <li key={attribute.id} className="flex items-center justify-between gap-2">
-                <span className="font-medium text-gray-700">{attribute.name}</span>
+              <li key={attribute.id} className="flex items-center justify-between">
+                <span className="truncate text-[12px] text-gray-800">
+                  {attribute.required ? <strong>*</strong> : null}
+                  {attribute.name}
+                </span>
                 <span className="text-[11px] text-indigo-500">{attribute.type}</span>
               </li>
             ))}
@@ -273,11 +303,12 @@ function ClassNode({ data }: NodeProps<DiagramNodeData>) {
               <li className="text-[11px] text-gray-400">+ {domainClass.attributes.length - 6} atributos</li>
             ) : null}
           </ul>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
+
 
 const computeGridPosition = (index: number, total: number): XYPosition => {
   if (total === 0) return { x: 0, y: 0 };
@@ -289,9 +320,16 @@ const computeGridPosition = (index: number, total: number): XYPosition => {
   return { x: column * spacingX, y: row * spacingY };
 };
 
-const formatRelationLabel = (relation: DomainRelation) => {
-  const left = `${relation.sourceRole ?? relation.sourceClassId} (${renderMultiplicity(relation.sourceMultiplicity)})`;
-  const right = `${relation.targetRole ?? relation.targetClassId} (${renderMultiplicity(relation.targetMultiplicity)})`;
+// Etiqueta de relación (no muestra UUIDs)
+const formatRelationLabel = (relation: DomainRelation, nameById: Record<string, string>) => {
+  const sourceName = relation.sourceRole?.trim() || nameById[relation.sourceClassId] || "Origen";
+  const targetName = relation.targetRole?.trim() || nameById[relation.targetClassId] || "Destino";
+  const left = `${sourceName} (${renderMultiplicity(relation.sourceMultiplicity)})`;
+  const right = `${targetName} (${renderMultiplicity(relation.targetMultiplicity)})`;
   return relation.name ? `${relation.name} | ${left} -> ${right}` : `${left} -> ${right}`;
 };
 
+// helpers (React Flow v11: cambio de posición es "position")
+function isNodePositionChange(change: NodeChange): change is NodePositionChange {
+  return change.type === "position";
+}

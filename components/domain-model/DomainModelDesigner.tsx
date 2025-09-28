@@ -205,6 +205,8 @@ export default function DomainModelDesigner({ projectId, actorId, onRefresh }: D
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
 
+const [activeTab, setActiveTab] = useState<'clases' | 'estructura' | 'relaciones'>('clases');
+
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [selectedRelationId, setSelectedRelationId] = useState<string | null>(null);
 
@@ -287,6 +289,7 @@ export default function DomainModelDesigner({ projectId, actorId, onRefresh }: D
     (relationId: string | null) => {
       setSelectedRelationId(relationId);
       if (relationId) {
+        setActiveTab('relaciones');
         scrollToSection("selection-panel");
       }
     },
@@ -448,7 +451,7 @@ export default function DomainModelDesigner({ projectId, actorId, onRefresh }: D
           );
         }
       }
-
+      setActiveTab('estructura');
       scrollToSection("selection-panel");
     },
     [createRelationFromLegend, pendingLegendRelation, scrollToSection],
@@ -875,7 +878,7 @@ export default function DomainModelDesigner({ projectId, actorId, onRefresh }: D
   }
 
   return (
-    <div className="space-y-8">
+    <main className=" w-[99dvw] mx-[calc(50%-50dvw)] min-h-screen bg-white overflow-x-clip">
       {error ? (
         <div className="rounded border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
           {error}
@@ -887,14 +890,18 @@ export default function DomainModelDesigner({ projectId, actorId, onRefresh }: D
         </div>
       ) : null}
 
-      <div className="lg:grid lg:grid-cols-[260px_minmax(0,2fr)_minmax(360px,1fr)] lg:items-start lg:gap-6">
-        <aside className="space-y-6">
+      <div className="grid
+  grid-cols-[minmax(240px,280px)_1fr_minmax(320px,380px)]
+  gap-3 sm:gap-4
+  pl-2 sm:pl-3 lg:pl-4 pr-0
+  max-w-[100dvw] overflow-x-hidden">
+        <aside className="sticky top-2 self-start h-[82vh] xl:h-[84vh]">
           <UMLNotationLegend
             onItemActivate={handleLegendItemActivate}
             activeItemId={pendingLegendRelation?.itemId ?? null}
           />
         </aside>
-        <div className="space-y-6">
+        <div className="h-[78vh] sm:h-[80vh] lg:h-[82vh] xl:h-[84vh] rounded-lg border border-gray-200 bg-gray-50">
           <DomainModelDiagram
             classes={classes}
             relations={relations}
@@ -949,633 +956,575 @@ export default function DomainModelDesigner({ projectId, actorId, onRefresh }: D
             </section>
           )}
         </div>
-        <aside className="space-y-6 lg:sticky lg:top-2">
-          <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
-            <div className="border-b border-gray-200 px-4 py-3">
-              <h2 className="text-sm font-semibold text-gray-900">Barra lateral</h2>
-              <p className="text-xs text-gray-500">Accede a clases, estructura y relaciones del modelo.</p>
+       <aside className="space-y-4 lg:sticky lg:top-2 justify-self-end w-full -mr-3 sm:-mr-4 lg:-mr-6">
+  {/* Encabezado + pestañas */}
+  <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+    <div className="border-b border-gray-200 px-4 py-3">
+      <h2 className="text-sm font-semibold text-gray-900">Barra lateral</h2>
+      <p className="text-xs text-gray-500">Accede a clases, estructura y relaciones del modelo.</p>
+    </div>
+    <div className="flex flex-wrap gap-2 px-4 py-3">
+      <button
+        type="button"
+        onClick={() => setActiveTab('clases')}
+        className={`rounded px-3 py-1 text-xs font-semibold ${
+          activeTab === 'clases' ? 'bg-blue-600 text-white' : 'border border-gray-300 text-gray-700 hover:bg-gray-100'
+        }`}
+      >
+        Clases
+      </button>
+      <button
+        type="button"
+        onClick={() => setActiveTab('estructura')}
+        className={`rounded px-3 py-1 text-xs font-semibold ${
+          activeTab === 'estructura' ? 'bg-blue-600 text-white' : 'border border-gray-300 text-gray-700 hover:bg-gray-100'
+        }`}
+      >
+        Estructura
+      </button>
+      <button
+        type="button"
+        onClick={() => setActiveTab('relaciones')}
+        className={`rounded px-3 py-1 text-xs font-semibold ${
+          activeTab === 'relaciones' ? 'bg-blue-600 text-white' : 'border border-gray-300 text-gray-700 hover:bg-gray-100'
+        }`}
+      >
+        Relaciones
+      </button>
+    </div>
+  </div>
+
+  {/* Contenedor de contenido por pestaña */}
+  <div className="rounded-lg border border-gray-200 bg-white shadow-sm h-[82vh] overflow-y-auto p-4">
+    {/* ======== CLASES (solo la seleccionada) ======== */}
+    {activeTab === 'clases' && (
+      <div className="space-y-4">
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-gray-600">Clase seleccionada</label>
+          <select
+            value={selectedClassId ?? ''}
+            onChange={(e) => setSelectedClassId(e.target.value || null)}
+            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          >
+            <option value="">(ninguna)</option>
+            {classes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {selectedClass ? (
+          <form className="space-y-3" onSubmit={handleUpdateClass}>
+            <h3 className="text-sm font-semibold text-gray-800">Editar clase</h3>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-gray-600">Nombre</label>
+              <input
+                value={editClassForm.name}
+                onChange={(e) => setEditClassForm((p) => ({ ...p, name: e.target.value }))}
+                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                required
+              />
             </div>
-            <div className="flex flex-wrap gap-2 px-4 py-3">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-gray-600">Descripción (opcional)</label>
+              <textarea
+                value={editClassForm.description}
+                onChange={(e) => setEditClassForm((p) => ({ ...p, description: e.target.value }))}
+                rows={2}
+                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="flex gap-2">
               <button
-                type="button"
-                onClick={() => scrollToSection("classes-panel")}
-                className="rounded bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-700"
+                type="submit"
+                className="flex-1 rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
               >
-                Clases
+                Guardar cambios
               </button>
               <button
                 type="button"
-                onClick={() => scrollToSection("structure-panel")}
-                className="rounded border border-gray-300 px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-100"
+                onClick={() => selectedClass && handleDeleteClass(selectedClass)}
+                className="rounded border border-rose-200 px-3 py-2 text-sm text-rose-600 hover:bg-rose-50"
               >
-                Estructura
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollToSection("relations-panel")}
-                className="rounded border border-gray-300 px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-100"
-              >
-                Relaciones
+                Eliminar
               </button>
             </div>
-          </div>
+          </form>
+        ) : (
+          <p className="text-sm text-gray-500">Selecciona una clase para editarla.</p>
+        )}
+      </div>
+    )}
 
-          <section id="classes-panel" className="rounded-lg border border-gray-200 bg-white shadow-sm">
-                  <header className="border-b border-gray-200 px-6 py-4">
-                    <h2 className="text-lg font-semibold text-gray-900">Clases de dominio</h2>
-                    <p className="text-sm text-gray-600">Cree, seleccione y edite las clases que conforman el modelo.</p>
-                  </header>
-                  <div className="space-y-6 p-6">
-                    <div className="space-y-4">
-                      {classes.length === 0 ? (
-                        <p className="text-sm text-gray-500">Aun no hay clases definidas.</p>
-                      ) : (
-                        <ul className="space-y-3">
-                          {classes.map((domainClass) => {
-                            const isSelected = domainClass.id === selectedClassId;
-                            return (
-                              <li
-                                key={domainClass.id}
-                                className={`flex items-start justify-between rounded border px-4 py-3 transition ${
-                                  isSelected
-                                    ? "border-blue-300 bg-blue-50"
-                                    : "border-gray-200 bg-white hover:border-blue-200"
-                                }`}
-                              >
-                                <button
-                                  type="button"
-                                  className="flex-1 text-left"
-                                  onClick={() => { setSelectedClassId(domainClass.id); setSelectedRelationId(null); scrollToSection("selection-panel"); }}
-                                >
-                                  <span className="text-sm font-semibold text-gray-900">{domainClass.name}</span>
-                                  {domainClass.description ? (
-                                    <p className="text-xs text-gray-600">{domainClass.description}</p>
-                                  ) : null}
-                                  <p className="mt-1 text-xs text-gray-500">
-                                    {domainClass.attributes.length} atributos - {domainClass.identities.length} identidades
-                                  </p>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteClass(domainClass)}
-                                  className="ml-3 rounded border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:border-rose-300 hover:text-rose-600"
-                                >
-                                  Eliminar
-                                </button>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      )}
-                    </div>
-                    <div className="space-y-8">
-                      <form className="space-y-3" onSubmit={handleCreateClass}>
-                        <h3 className="text-sm font-semibold text-gray-800">Nueva clase</h3>
-                        <div className="space-y-1">
-                          <label className="text-xs font-medium text-gray-600">Nombre</label>
-                          <input
-                            value={createClassForm.name}
-                            onChange={(event) =>
-                              setCreateClassForm((prev) => ({ ...prev, name: event.target.value }))
-                            }
-                            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                            required
-                          />
+    {/* ======== ESTRUCTURA (solo de la clase seleccionada) ======== */}
+    {activeTab === 'estructura' && (
+      <div className="space-y-6">
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-gray-600">Clase seleccionada</label>
+          <select
+            value={selectedClassId ?? ''}
+            onChange={(e) => setSelectedClassId(e.target.value || null)}
+            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          >
+            <option value="">(ninguna)</option>
+            {classes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {selectedClass ? (
+          <>
+            {/* --- ATRIBUTOS --- */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-gray-800">Atributos</h3>
+              {selectedClass.attributes.length === 0 ? (
+                <p className="text-sm text-gray-500">Esta clase aun no tiene atributos.</p>
+              ) : (
+                <ul className="space-y-3">
+                  {selectedClass.attributes.map((attribute) => (
+                    <li
+                      key={attribute.id}
+                      className="rounded border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-gray-900">{attribute.name}</p>
+                          <p className="text-xs text-gray-500">{attribute.type}</p>
+                          <p className="text-xs text-gray-500">
+                            {attribute.required ? 'Obligatorio' : 'Opcional'}
+                          </p>
+                          {attribute.config ? (
+                            <p className="text-xs text-gray-500">{summarizeConfig(attribute.config)}</p>
+                          ) : null}
                         </div>
-                        <div className="space-y-1">
-                          <label className="text-xs font-medium text-gray-600">Descripcion (opcional)</label>
-                          <textarea
-                            value={createClassForm.description}
-                            onChange={(event) =>
-                              setCreateClassForm((prev) => ({ ...prev, description: event.target.value }))
-                            }
-                            rows={2}
-                            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                          />
+                        <div className="flex flex-col gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleEditAttribute(attribute)}
+                            className="rounded border border-blue-200 px-2 py-1 text-xs text-blue-700 hover:bg-blue-50"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteAttribute(attribute)}
+                            className="rounded border border-rose-200 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
+                          >
+                            Eliminar
+                          </button>
                         </div>
-                        <button
-                          type="submit"
-                          className="w-full rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                        >
-                          Crear clase
-                        </button>
-                      </form>
-
-      
-
-                {selectedClass ? (
-                        <form className="space-y-3 border-t border-gray-200 pt-4" onSubmit={handleUpdateClass}>
-                          <h3 className="text-sm font-semibold text-gray-800">Editar clase seleccionada</h3>
-                          <div className="space-y-1">
-                            <label className="text-xs font-medium text-gray-600">Nombre</label>
-                            <input
-                              value={editClassForm.name}
-                              onChange={(event) =>
-                                setEditClassForm((prev) => ({ ...prev, name: event.target.value }))
-                              }
-                              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                              required
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-xs font-medium text-gray-600">Descripcion (opcional)</label>
-                            <textarea
-                              value={editClassForm.description}
-                              onChange={(event) =>
-                                setEditClassForm((prev) => ({ ...prev, description: event.target.value }))
-                              }
-                              rows={2}
-                              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                            />
-                          </div>
-                          <button
-                            type="submit"
-                            className="w-full rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                          >
-                            Guardar cambios
-                          </button>
-                        </form>
-                      ) : null}
-
-                    </div>
-                  </div>
-          </section>
-
-          {selectedClass ? (
-          <section id="structure-panel" className="rounded-lg border border-gray-200 bg-white shadow-sm">
-                    <header className="border-b border-gray-200 px-6 py-4">
-                      <h2 className="text-lg font-semibold text-gray-900">
-                        Estructura de {selectedClass.name}
-                      </h2>
-                      <p className="text-sm text-gray-600">
-                        Gestione atributos e identidades de la clase seleccionada.
-                      </p>
-                    </header>
-                    <div className="space-y-6 p-6">
-                      <div className="space-y-4">
-                        <h3 className="text-sm font-semibold text-gray-800">Atributos</h3>
-                        {selectedClass.attributes.length === 0 ? (
-                          <p className="text-sm text-gray-500">Esta clase aun no tiene atributos.</p>
-                        ) : (
-                          <ul className="space-y-3">
-                            {selectedClass.attributes.map((attribute) => (
-                              <li
-                                key={attribute.id}
-                                className="rounded border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700"
-                              >
-                                <div className="flex items-start justify-between gap-3">
-                                  <div>
-                                    <p className="font-semibold text-gray-900">{attribute.name}</p>
-                                    <p className="text-xs text-gray-500">{attribute.type}</p>
-                                    <p className="text-xs text-gray-500">
-                                      {attribute.required ? "Obligatorio" : "Opcional"}
-                                    </p>
-                                    {attribute.config ? (
-                                      <p className="text-xs text-gray-500">
-                                        {summarizeConfig(attribute.config)}
-                                      </p>
-                                    ) : null}
-                                  </div>
-                                  <div className="flex flex-col gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleEditAttribute(attribute)}
-                                      className="rounded border border-blue-200 px-2 py-1 text-xs text-blue-700 hover:bg-blue-50"
-                                    >
-                                      Editar
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteAttribute(attribute)}
-                                      className="rounded border border-rose-200 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
-                                    >
-                                      Eliminar
-                                    </button>
-                                  </div>
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                        <form className="space-y-3 border-t border-gray-200 pt-4" onSubmit={handleSubmitAttribute}>
-                          <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-semibold text-gray-800">
-                              {attributeMode === "create" ? "Agregar atributo" : "Editar atributo"}
-                            </h3>
-                            {attributeMode === "edit" ? (
-                              <button
-                                type="button"
-                                className="text-xs text-gray-500 hover:text-gray-700"
-                                onClick={resetAttributeForm}
-                              >
-                                Cancelar
-                              </button>
-                            ) : null}
-                          </div>
-                          <div className="grid gap-3 md:grid-cols-2">
-                            <div className="space-y-1 md:col-span-2">
-                              <label className="text-xs font-medium text-gray-600">Nombre</label>
-                              <input
-                                value={attributeForm.name}
-                                onChange={(event) => handleAttributeFormChange("name", event.target.value)}
-                                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                                required
-                              />
-                            </div>
-                            <div className="space-y-1">
-                              <label className="text-xs font-medium text-gray-600">Tipo</label>
-                              <select
-                                value={attributeForm.type}
-                                onChange={(event) =>
-                                  handleAttributeFormChange("type", event.target.value as DomainAttributeType)
-                                }
-                                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                              >
-                                {DOMAIN_ATTRIBUTE_TYPES.map((type) => (
-                                  <option key={type} value={type}>
-                                    {type}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                            <div className="flex items-center gap-2 pt-5">
-                              <input
-                                id="attribute-required"
-                                type="checkbox"
-                                checked={attributeForm.required}
-                                onChange={(event) => handleAttributeFormChange("required", event.target.checked)}
-                                className="h-4 w-4 rounded border-gray-300"
-                              />
-                              <label htmlFor="attribute-required" className="text-xs text-gray-600">
-                                Obligatorio
-                              </label>
-                            </div>
-                          </div>
-                          <div className="grid gap-3 md:grid-cols-2">
-                            <NumberField
-                              label="Longitud minima"
-                              value={attributeForm.lengthMin}
-                              onChange={(value) => handleAttributeFormChange("lengthMin", value)}
-                            />
-                            <NumberField
-                              label="Longitud maxima"
-                              value={attributeForm.lengthMax}
-                              onChange={(value) => handleAttributeFormChange("lengthMax", value)}
-                            />
-                            <NumberField
-                              label="Valor minimo"
-                              value={attributeForm.min}
-                              onChange={(value) => handleAttributeFormChange("min", value)}
-                            />
-                            <NumberField
-                              label="Valor maximo"
-                              value={attributeForm.max}
-                              onChange={(value) => handleAttributeFormChange("max", value)}
-                            />
-                            <NumberField
-                              label="Escala"
-                              value={attributeForm.scale}
-                              onChange={(value) => handleAttributeFormChange("scale", value)}
-                            />
-                            <NumberField
-                              label="Precision"
-                              value={attributeForm.precision}
-                              onChange={(value) => handleAttributeFormChange("precision", value)}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-xs font-medium text-gray-600">Patron (regex)</label>
-                            <input
-                              value={attributeForm.pattern}
-                              onChange={(event) => handleAttributeFormChange("pattern", event.target.value)}
-                              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                            />
-                          </div>
-                          <button
-                            type="submit"
-                            className="w-full rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                          >
-                            {attributeMode === "create" ? "Crear atributo" : "Actualizar atributo"}
-                          </button>
-                        </form>
                       </div>
-                      <div className="space-y-4">
-                        <h3 className="text-sm font-semibold text-gray-800">Identidades</h3>
-                        {selectedClass.identities.length === 0 ? (
-                          <p className="text-sm text-gray-500">No hay identidades definidas para esta clase.</p>
-                        ) : (
-                          <ul className="space-y-3">
-                            {selectedClass.identities.map((identity) => (
-                              <li
-                                key={identity.id}
-                                className="rounded border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700"
-                              >
-                                <div className="flex items-start justify-between gap-3">
-                                  <div>
-                                    <p className="font-semibold text-gray-900">{identity.name}</p>
-                                    {identity.description ? (
-                                      <p className="text-xs text-gray-500">{identity.description}</p>
-                                    ) : null}
-                                    <p className="text-xs text-gray-500">
-                                      {identity.attributeIds
-                                        .map((attributeId) =>
-                                          selectedClass.attributes.find((attribute) => attribute.id === attributeId)?.name ??
-                                          attributeId,
-                                        )
-                                        .join(", ")}
-                                    </p>
-                                  </div>
-                                  <div className="flex flex-col gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleEditIdentity(identity)}
-                                      className="rounded border border-blue-200 px-2 py-1 text-xs text-blue-700 hover:bg-blue-50"
-                                    >
-                                      Editar
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteIdentity(identity.id)}
-                                      className="rounded border border-rose-200 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
-                                    >
-                                      Eliminar
-                                    </button>
-                                  </div>
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                        <form className="space-y-3 border-t border-gray-200 pt-4" onSubmit={handleSubmitIdentity}>
-                          <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-semibold text-gray-800">
-                              {editingIdentityId ? "Editar identidad" : "Nueva identidad"}
-                            </h3>
-                            {editingIdentityId ? (
-                              <button
-                                type="button"
-                                className="text-xs text-gray-500 hover:text-gray-700"
-                                onClick={resetIdentityForm}
-                              >
-                                Cancelar
-                              </button>
-                            ) : null}
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-xs font-medium text-gray-600">Nombre</label>
-                            <input
-                              value={identityForm.name}
-                              onChange={(event) =>
-                                setIdentityForm((prev) => ({ ...prev, name: event.target.value }))
-                              }
-                              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                              required
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-xs font-medium text-gray-600">Descripcion (opcional)</label>
-                            <textarea
-                              value={identityForm.description}
-                              onChange={(event) =>
-                                setIdentityForm((prev) => ({ ...prev, description: event.target.value }))
-                              }
-                              rows={2}
-                              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <p className="text-xs font-medium text-gray-600">Atributos incluidos</p>
-                            <div className="flex flex-wrap gap-2">
-                              {selectedClass.attributes.length === 0 ? (
-                                <span className="text-xs text-gray-500">No hay atributos en la clase.</span>
-                              ) : (
-                                selectedClass.attributes.map((attribute) => {
-                                  const checked = identityForm.attributeIds.includes(attribute.id);
-                                  return (
-                                    <label
-                                      key={attribute.id}
-                                      className={`cursor-pointer rounded border px-2 py-1 text-xs ${
-                                        checked
-                                          ? "border-blue-300 bg-blue-50 text-blue-700"
-                                          : "border-gray-200 text-gray-600"
-                                      }`}
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        className="mr-2 align-middle"
-                                        checked={checked}
-                                        onChange={() => toggleIdentityAttribute(attribute.id)}
-                                      />
-                                      {attribute.name}
-                                    </label>
-                                  );
-                                })
-                              )}
-                            </div>
-                          </div>
-                          <button
-                            type="submit"
-                            className="w-full rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                          >
-                            {editingIdentityId ? "Actualizar identidad" : "Crear identidad"}
-                          </button>
-                        </form>
-                      </div>
-                    </div>
-                  </section>
+                    </li>
+                  ))}
+                </ul>
+              )}
 
-          ) : null}
-          <section id="relations-panel" className="rounded-lg border border-gray-200 bg-white shadow-sm">
-            <header className="border-b border-gray-200 px-6 py-4">
-              <h2 className="text-lg font-semibold text-gray-900">Relaciones</h2>
-              <p className="text-sm text-gray-600">
-                Defina relaciones entre clases, roles y multiplicidades. Se muestran las relaciones del proyecto y se priorizan las asociadas a la clase seleccionada.
-              </p>
-            </header>
-            <div className="space-y-6 p-6">
-              <div className="space-y-3">
-                {relationsToShow.length === 0 ? (
-                  <p className="text-sm text-gray-500">No hay relaciones para mostrar.</p>
-                ) : (
-                  <ul className="space-y-3">
-                    {relationsToShow.map((relation) => {
-                      const isSelectedRelation = relation.id === selectedRelationId;
-                      return (
-                        <li
-                          key={relation.id}
-                          onClick={() => handleSelectRelation(relation.id)}
-                          className={`cursor-pointer rounded border px-4 py-3 text-sm transition ${
-                            isSelectedRelation
-                              ? "border-blue-300 bg-blue-50 text-blue-900"
-                              : "border-gray-200 bg-white text-gray-700 hover:border-blue-200"
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className={`font-semibold ${isSelectedRelation ? "text-blue-900" : "text-gray-900"}`}>
-                                {getClassName(relation.sourceClassId)} {'->'} {getClassName(relation.targetClassId)}
-                              </p>
-                              {relation.name ? (
-                                <p className={`text-xs ${isSelectedRelation ? "text-blue-700" : "text-gray-500"}`}>{relation.name}</p>
-                              ) : null}
-                              <p className={`text-xs ${isSelectedRelation ? "text-blue-700" : "text-gray-500"}`}>
-                                Rol origen: {relation.sourceRole ?? "(sin rol)"} | {renderMultiplicity(relation.sourceMultiplicity)}
-                              </p>
-                              <p className={`text-xs ${isSelectedRelation ? "text-blue-700" : "text-gray-500"}`}>
-                                Rol destino: {relation.targetRole ?? "(sin rol)"} | {renderMultiplicity(relation.targetMultiplicity)}
-                              </p>
-                            </div>
-                            <div className="flex flex-col gap-2">
-                              <button
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  handleEditRelation(relation);
-                                }}
-                                className="rounded border border-blue-200 px-2 py-1 text-xs text-blue-700 hover:bg-blue-50"
-                              >
-                                Editar
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  handleDeleteRelation(relation);
-                                }}
-                                className="rounded border border-rose-200 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
-                              >
-                                Eliminar
-                              </button>
-                            </div>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-              <form className="space-y-3 rounded border border-gray-200 bg-gray-50 p-4" onSubmit={handleSubmitRelation}>
+              {/* Form atributo (tu mismo handler) */}
+              <form className="space-y-3 border-t border-gray-200 pt-4" onSubmit={handleSubmitAttribute}>
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-gray-800">
-                    {relationMode === "create" ? "Nueva relacion" : "Editar relacion"}
+                    {attributeMode === 'create' ? 'Agregar atributo' : 'Editar atributo'}
                   </h3>
-                  {relationMode === "edit" ? (
+                  {attributeMode === 'edit' ? (
                     <button
                       type="button"
                       className="text-xs text-gray-500 hover:text-gray-700"
-                      onClick={() => resetRelationForm(selectedClassId ?? undefined)}
+                      onClick={resetAttributeForm}
                     >
                       Cancelar
                     </button>
                   ) : null}
                 </div>
-                <div className="space-y-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-gray-600">Clase origen</label>
-                    <select
-                      value={relationForm.sourceClassId}
-                      onChange={(event: ChangeEvent<HTMLSelectElement>) =>
-                        handleRelationFormChange("sourceClassId", event.target.value)
-                      }
-                      className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                    >
-                      <option value="">Seleccionar</option>
-                      {classes.map((domainClass) => (
-                        <option key={domainClass.id} value={domainClass.id}>
-                          {domainClass.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-gray-600">Clase destino</label>
-                    <select
-                      value={relationForm.targetClassId}
-                      onChange={(event: ChangeEvent<HTMLSelectElement>) =>
-                        handleRelationFormChange("targetClassId", event.target.value)
-                      }
-                      className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                    >
-                      <option value="">Seleccionar</option>
-                      {classes.map((domainClass) => (
-                        <option key={domainClass.id} value={domainClass.id}>
-                          {domainClass.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-gray-600">Nombre (opcional)</label>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-1 md:col-span-2">
+                    <label className="text-xs font-medium text-gray-600">Nombre</label>
                     <input
-                      value={relationForm.name}
-                      onChange={(event) => handleRelationFormChange("name", event.target.value)}
+                      value={attributeForm.name}
+                      onChange={(e) => handleAttributeFormChange('name', e.target.value)}
                       className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                      required
                     />
                   </div>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-gray-600">Rol origen</label>
-                      <input
-                        value={relationForm.sourceRole}
-                        onChange={(event) => handleRelationFormChange("sourceRole", event.target.value)}
-                        className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-gray-600">Rol destino</label>
-                      <input
-                        value={relationForm.targetRole}
-                        onChange={(event) => handleRelationFormChange("targetRole", event.target.value)}
-                        className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-gray-600">Multiplicidad origen</label>
-                      <select
-                        value={relationForm.sourceMultiplicity}
-                        onChange={(event: ChangeEvent<HTMLSelectElement>) =>
-                          handleRelationFormChange("sourceMultiplicity", event.target.value as DomainMultiplicity)
-                        }
-                        className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                      >
-                        {MULTIPLICITY_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-gray-600">Multiplicidad destino</label>
-                      <select
-                        value={relationForm.targetMultiplicity}
-                        onChange={(event: ChangeEvent<HTMLSelectElement>) =>
-                          handleRelationFormChange("targetMultiplicity", event.target.value as DomainMultiplicity)
-                        }
-                        className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                      >
-                        {MULTIPLICITY_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-gray-600">Tipo</label>
+                    <select
+                      value={attributeForm.type}
+                      onChange={(e) => handleAttributeFormChange('type', e.target.value as any)}
+                      className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    >
+                      {DOMAIN_ATTRIBUTE_TYPES.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                  <button
-                    type="submit"
-                    className="w-full rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                  >
-                    {relationMode === "create" ? "Crear relacion" : "Actualizar relacion"}
-                  </button>
+                  <label className="flex items-center gap-2 pt-5 text-xs text-gray-600">
+                    <input
+                      type="checkbox"
+                      checked={attributeForm.required}
+                      onChange={(e) => handleAttributeFormChange('required', e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
+                    Obligatorio
+                  </label>
                 </div>
+
+                {/* Puedes dejar tus NumberField / pattern aquí si quieres */}
+                <button className="w-full rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+                  {attributeMode === 'create' ? 'Crear atributo' : 'Actualizar atributo'}
+                </button>
               </form>
             </div>
-          </section>
 
-        </aside>
+            {/* --- IDENTIDADES --- */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-gray-800">Identidades</h3>
+              {selectedClass.identities.length === 0 ? (
+                <p className="text-sm text-gray-500">No hay identidades definidas para esta clase.</p>
+              ) : (
+                <ul className="space-y-3">
+                  {selectedClass.identities.map((identity) => (
+                    <li
+                      key={identity.id}
+                      className="rounded border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-gray-900">{identity.name}</p>
+                          {identity.description ? (
+                            <p className="text-xs text-gray-500">{identity.description}</p>
+                          ) : null}
+                          <p className="text-xs text-gray-500">
+                            {identity.attributeIds
+                              .map(
+                                (attributeId) =>
+                                  selectedClass.attributes.find((a) => a.id === attributeId)?.name ?? attributeId,
+                              )
+                              .join(', ')}
+                          </p>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleEditIdentity(identity)}
+                            className="rounded border border-blue-200 px-2 py-1 text-xs text-blue-700 hover:bg-blue-50"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteIdentity(identity.id)}
+                            className="rounded border border-rose-200 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {/* Form identidad */}
+              <form className="space-y-3 border-t border-gray-200 pt-4" onSubmit={handleSubmitIdentity}>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-800">
+                    {editingIdentityId ? 'Editar identidad' : 'Nueva identidad'}
+                  </h3>
+                  {editingIdentityId ? (
+                    <button
+                      type="button"
+                      className="text-xs text-gray-500 hover:text-gray-700"
+                      onClick={resetIdentityForm}
+                    >
+                      Cancelar
+                    </button>
+                  ) : null}
+                </div>
+
+                {/* (mantén tus campos actuales de identidad) */}
+
+                <button className="w-full rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+                  {editingIdentityId ? 'Actualizar identidad' : 'Crear identidad'}
+                </button>
+              </form>
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-gray-500">Selecciona una clase para gestionar su estructura.</p>
+        )}
       </div>
+    )}
+
+    {/* ======== RELACIONES (solo form de la seleccionada) ======== */}
+    {activeTab === 'relaciones' && (
+      <div className="space-y-4">
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-gray-600">Relación seleccionada</label>
+          <select
+            value={selectedRelationId ?? ''}
+            onChange={(e) => {
+              const id = e.target.value || null;
+              setSelectedRelationId(id);
+              const rel = relations.find((r) => r.id === id);
+              if (rel) {
+                handleEditRelation(rel);
+              } else {
+                setRelationMode('create');
+                setEditingRelationId(null);
+                resetRelationForm(selectedClassId ?? undefined);
+              }
+            }}
+            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          >
+            <option value="">(ninguna)</option>
+            {(selectedClassId ? relations.filter(r => r.sourceClassId === selectedClassId || r.targetClassId === selectedClassId) : relations)
+              .map((r) => (
+                <option key={r.id} value={r.id}>
+                  {`${getClassName(r.sourceClassId)} -> ${getClassName(r.targetClassId)}${r.name ? ` · ${r.name}` : ''}`}
+                </option>
+              ))}
+          </select>
+        </div>
+
+        <form className="space-y-3 rounded border border-gray-200 bg-gray-50 p-4" onSubmit={handleSubmitRelation}>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-800">
+              {relationMode === 'create' ? 'Nueva relación' : 'Editar relación'}
+            </h3>
+            {relationMode === 'edit' ? (
+              <button
+                type="button"
+                className="text-xs text-gray-500 hover:text-gray-700"
+                onClick={() => resetRelationForm(selectedClassId ?? undefined)}
+              >
+                Limpiar
+              </button>
+            ) : null}
+          </div>
+
+          <section id="relations-panel" className="rounded-lg border border-gray-200 bg-white shadow-sm">
+  <header className="border-b border-gray-200 px-6 py-4">
+    <h2 className="text-lg font-semibold text-gray-900">Relaciones</h2>
+    <p className="text-sm text-gray-600">
+      Crea, edita o elimina relaciones. Se priorizan las asociadas a la clase seleccionada.
+    </p>
+  </header>
+
+  <div className="space-y-6 p-6">
+    {/* LISTA / SELECCIÓN */}
+    <div className="space-y-3">
+      {relationsToShow.length === 0 ? (
+        <p className="text-sm text-gray-500">No hay relaciones para mostrar.</p>
+      ) : (
+        <ul className="space-y-3">
+          {relationsToShow.map((relation) => {
+            const isSelected = relation.id === selectedRelationId;
+            return (
+              <li
+                key={relation.id}
+                onClick={() => handleSelectRelation(relation.id)}
+                className={`cursor-pointer rounded border px-4 py-3 text-sm transition ${
+                  isSelected
+                    ? 'border-blue-300 bg-blue-50 text-blue-900'
+                    : 'border-gray-200 bg-white text-gray-700 hover:border-blue-200'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className={`font-semibold ${isSelected ? 'text-blue-900' : 'text-gray-900'}`}>
+                      {getClassName(relation.sourceClassId)} → {getClassName(relation.targetClassId)}
+                    </p>
+                    {/* Si NO quieres mostrar el nombre de la relación, comenta esta línea */}
+                    {/* {relation.name ? (
+                      <p className={`text-xs ${isSelected ? 'text-blue-700' : 'text-gray-500'}`}>{relation.name}</p>
+                    ) : null} */}
+                    <p className={`text-xs ${isSelected ? 'text-blue-700' : 'text-gray-500'}`}>
+                      Origen: {renderMultiplicity(relation.sourceMultiplicity)}
+                      {' · '}Destino: {renderMultiplicity(relation.targetMultiplicity)}
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditRelation(relation);
+                      }}
+                      className="rounded border border-blue-200 px-2 py-1 text-xs text-blue-700 hover:bg-blue-50"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteRelation(relation);
+                      }}
+                      className="rounded border border-rose-200 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
+
+    {/* FORM CREAR / EDITAR */}
+    <form
+      className="space-y-3 rounded border border-gray-200 bg-gray-50 p-4"
+      onSubmit={handleSubmitRelation}
+    >
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-gray-800">
+          {relationMode === 'create' ? 'Nueva relación' : 'Editar relación'}
+        </h3>
+        {relationMode === 'edit' ? (
+          <button
+            type="button"
+            className="text-xs text-gray-500 hover:text-gray-700"
+            onClick={() => resetRelationForm(selectedClassId ?? undefined)}
+          >
+            Cancelar
+          </button>
+        ) : null}
+      </div>
+
+      <div className="space-y-3">
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-gray-600">Clase origen</label>
+          <select
+            value={relationForm.sourceClassId}
+            onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+              handleRelationFormChange('sourceClassId', e.target.value)
+            }
+            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          >
+            <option value="">Seleccionar</option>
+            {classes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-gray-600">Clase destino</label>
+          <select
+            value={relationForm.targetClassId}
+            onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+              handleRelationFormChange('targetClassId', e.target.value)
+            }
+            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          >
+            <option value="">Seleccionar</option>
+            {classes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Si quieres ocultar “Nombre”, simplemente comenta este bloque */}
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-gray-600">Nombre (opcional)</label>
+          <input
+            value={relationForm.name}
+            onChange={(e) => handleRelationFormChange('name', e.target.value)}
+            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          />
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-600">Rol origen (opcional)</label>
+            <input
+              value={relationForm.sourceRole}
+              onChange={(e) => handleRelationFormChange('sourceRole', e.target.value)}
+              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-600">Rol destino (opcional)</label>
+            <input
+              value={relationForm.targetRole}
+              onChange={(e) => handleRelationFormChange('targetRole', e.target.value)}
+              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-600">Multiplicidad origen</label>
+            <select
+              value={relationForm.sourceMultiplicity}
+              onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                handleRelationFormChange('sourceMultiplicity', e.target.value as DomainMultiplicity)
+              }
+              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            >
+              {MULTIPLICITY_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-600">Multiplicidad destino</label>
+            <select
+              value={relationForm.targetMultiplicity}
+              onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                handleRelationFormChange('targetMultiplicity', e.target.value as DomainMultiplicity)
+              }
+              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            >
+              {MULTIPLICITY_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          className="w-full rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+        >
+          {relationMode === 'create' ? 'Crear relación' : 'Actualizar relación'}
+        </button>
+      </div>
+    </form>
+  </div>
+</section>
+
+
+          <button className="w-full rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+            {relationMode === 'create' ? 'Crear relación' : 'Actualizar relación'}
+          </button>
+        </form>
+      </div>
+    )}
+  </div>
+</aside>
+
+      </div>
+    </main>
   );
 }
 interface NumberFieldProps {
