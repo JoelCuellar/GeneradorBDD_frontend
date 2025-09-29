@@ -34,7 +34,12 @@ import UMLNotationLegend, {
   type UMLRelationItemId,
 } from "./UMLNotationLegend";
 import { renderMultiplicity, summarizeConfig } from "./utils";
-
+import { RealtimeProvider } from "../realtime/RealtimeProvider";
+import PresenceLayer from "../realtime/PresenceLayer";
+import { useRealtime } from "../realtime/RealtimeProvider";
+import { RT_EVENTS } from "@/lib/realtime/events";
+import { getAuthToken } from "../auth/token";
+import { RealtimeModelSync, RealtimePresenceSync } from "../realtime/sync";
 interface DomainModelDesignerProps {
   projectId: string;
   actorId: string;
@@ -233,6 +238,11 @@ const isClassLegendItem = (itemId: UMLNotationItemId): itemId is UMLClassItemId 
 const isRelationLegendItem = (itemId: UMLNotationItemId): itemId is UMLRelationItemId =>
   RELATION_ITEM_ID_SET.has(itemId);
 
+
+
+
+
+// 2) Presencia: cursor + selección
 
 
 
@@ -597,6 +607,9 @@ const [activeTab, setActiveTab] = useState<'clases' | 'estructura' | 'relaciones
       ),
     }));
   }, [selectedClass]);
+  
+
+
 
   useEffect(() => {
     if (!selectedRelationId) return;
@@ -984,6 +997,7 @@ const [activeTab, setActiveTab] = useState<'clases' | 'estructura' | 'relaciones
   if (!model && loading) {
     return <div className="rounded border border-gray-200 bg-white p-6">Cargando modelo...</div>;
   }
+const token = typeof window !== "undefined" ? getAuthToken() : undefined;
 
   return (
     <main className=" w-[99dvw] mx-[calc(50%-50dvw)] min-h-screen bg-white overflow-x-clip">
@@ -1010,6 +1024,10 @@ const [activeTab, setActiveTab] = useState<'clases' | 'estructura' | 'relaciones
           />
         </aside>
         <div className="h-[78vh] sm:h-[80vh] lg:h-[82vh] xl:h-[84vh] rounded-lg border border-gray-200 bg-gray-50">
+          <RealtimeProvider projectId={projectId} token={token} me={{ id: actorId }}>
+            <RealtimeModelSync setModel={setModel} />
+            <RealtimePresenceSync selectedClassId={selectedClassId} selectedRelationId={selectedRelationId} />
+
           <DomainModelDiagram
             classes={classes}
             relations={relations}
@@ -1019,7 +1037,7 @@ const [activeTab, setActiveTab] = useState<'clases' | 'estructura' | 'relaciones
             onSelectRelation={handleSelectRelation}
             onCreateRelation={handleQuickCreateRelation}
           />
-
+          <PresenceLayer />
           {selectedClass ? (
             <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
               <div className="flex items-start justify-between gap-4">
@@ -1063,6 +1081,7 @@ const [activeTab, setActiveTab] = useState<'clases' | 'estructura' | 'relaciones
               </button>
             </section>
           )}
+          </RealtimeProvider>
         </div>
        <aside className="space-y-4 lg:sticky lg:top-2 justify-self-end w-full -mr-3 sm:-mr-4 lg:-mr-6">
   {/* Encabezado + pestañas */}

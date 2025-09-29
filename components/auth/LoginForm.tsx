@@ -3,11 +3,14 @@
 import { useState } from "react";
 import { login, register, type LoginSuccess } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
-
+import { setAuthToken } from "./token";
 interface LoginFormProps {
   onSuccess: (session: LoginSuccess) => void;
 }
-
+function pickToken(session: LoginSuccess | any): string | undefined {
+  // Ajusta el nombre del campo si tu backend devuelve otro
+  return session?.token || session?.accessToken || session?.jwt || session?.data?.token || session?.data?.accessToken || session?.data?.jwt;
+}
 type AuthMode = "login" | "register";
 
 export default function LoginForm({ onSuccess }: LoginFormProps) {
@@ -59,6 +62,9 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     try {
       if (mode === "login") {
         const result = await login({ email: email.trim(), password });
+        const token = pickToken(result);
+         if (token) setAuthToken(token, { cookie: true, days: 7, cookieName: "auth_token" });
+       onSuccess(result);
         onSuccess(result);
       } else {
         const result = await register({
@@ -66,6 +72,8 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
           email: email.trim(),
           password,
         });
+        const token = pickToken(result);
+        if (token) setAuthToken(token, { cookie: true, days: 7, cookieName: "auth_token" });
         onSuccess(result);
       }
     } catch (err) {

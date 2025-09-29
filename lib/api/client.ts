@@ -1,4 +1,5 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import { getAuthToken } from "@/components/auth/token";
 
 export class ApiError extends Error {
   status: number;
@@ -20,7 +21,9 @@ export async function apiFetch<T>(path: string, init: ApiRequestInit = {}): Prom
   const url = `${API_BASE_URL}${path}`;
   const { body, headers, ...rest } = init;
   const preparedHeaders = new Headers(headers ?? {});
-
+  const token = getAuthToken?.();
+if (token && !preparedHeaders.has("Authorization")) {
+  preparedHeaders.set("Authorization", `Bearer ${token}`);}
   let finalBody: BodyInit | undefined;
   const shouldSerialize =
     body !== undefined &&
