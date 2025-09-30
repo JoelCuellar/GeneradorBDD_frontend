@@ -1,7 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { getRealtimeSocket, closeRealtimeSocket } from '@/lib/realtime/socket';
+
+import { getRealtimeSocket,  closeRealtimeSocket } from './socket';
 import { RT_EVENTS, type PresencePayload } from '@/lib/realtime/events';
 
 type UserInfo = { id: string; name?: string; color?: string };
@@ -31,7 +32,13 @@ export function RealtimeProvider({
 }: React.PropsWithChildren<{ projectId: string; token?: string; me: UserInfo }>) {
   const [presence, setPresence] = useState<PresenceState>({});
   const [isConnected, setIsConnected] = useState(false);
-  const socket = useMemo(() => getRealtimeSocket(token), [token]);
+  const socket = useMemo(() => getRealtimeSocket(), []);
+
+// si quieres re-inicializar cuando cambie el token:
+useEffect(() => {
+  closeRealtimeSocket();
+  getRealtimeSocket();
+}, [token]);
   const meInfo = useMemo(() => ({ ...me, color: me.color ?? colorFor(me.id) }), [me]);
 
   useEffect(() => {

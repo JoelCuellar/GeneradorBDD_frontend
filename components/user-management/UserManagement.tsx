@@ -6,7 +6,7 @@ import {
   USER_STATUSES,
   assignProjectRole,
   changeUserStatus,
-  createUser,
+
   getUserHistory,
   listUsers,
   softDeleteUser,
@@ -18,7 +18,7 @@ import {
   type UserStatus,
 } from "@/lib/api/users";
 import { ApiError } from "@/lib/api/client";
-
+import { createInvitation } from "@/lib/api/invitations";
 interface UserManagementProps {
   actorId: string;
   projects: ProjectMembershipSnapshot[];
@@ -143,18 +143,23 @@ export default function UserManagement({ actorId, projects, selectedProjectId, o
     return true;
   };
 
-  const handleCreate = async (payload: { name: string; email: string; role: ProjectRole }) => {
-    if (!ensureProject() || !project) return;
-    await createUser({
-      actorId,
-      projectId: project.projectId,
-      email: payload.email,
-      name: payload.name || undefined,
-      role: payload.role,
-    });
-    setFeedback("Usuario registrado");
-    refresh();
-  };
+const handleCreate = async (payload: { name: string; email: string; role: ProjectRole }) => {
+  if (!ensureProject() || !project) return;
+
+  const r = await createInvitation({
+    actorId,
+    projectId: project.projectId,
+    email: payload.email.trim().toLowerCase(),
+    role: payload.role,
+    expiresInHours: 72,
+  });
+
+  const url = `${window.location.origin}${r.acceptUrl}`;
+  try { await navigator.clipboard?.writeText(url); } catch {}
+
+  setFeedback("Invitación creada. Enlace copiado al portapapeles.");
+  refresh();
+};
 
   const handleEdit = async (userId: string, data: { name: string; email: string }) => {
     if (!ensureProject() || !project) return;

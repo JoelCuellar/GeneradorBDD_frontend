@@ -33,3 +33,36 @@ export function clearAuthToken(opts?: { cookieName?: string }) {
   const name = opts?.cookieName ?? 'auth_token';
   document.cookie = `${name}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT`;
 }
+
+type JwtPayload = { sub?: string; id?: string; userId?: string; email?: string; [k: string]: any };
+
+function decodeJwtPayload(token: string): JwtPayload | null {
+  try {
+    const part = token.split(".")[1];
+    if (!part) return null;
+    const norm = part.replace(/-/g, "+").replace(/_/g, "/");
+    const pad = norm.length % 4 ? "=".repeat(4 - (norm.length % 4)) : "";
+    const json = atob(norm + pad);
+    return JSON.parse(json) as JwtPayload;
+  } catch {
+    return null;
+  }
+}
+
+/** Devuelve el userId (sub/id/userId) del JWT, si existe */
+export function getAuthUserId(): string | undefined {
+  const t = getAuthToken();
+  if (!t) return undefined;
+  const p = decodeJwtPayload(t);
+  return p?.sub || p?.id || p?.userId || undefined;
+}
+
+/** (Opcional) sesión práctica para otros usos */
+export function getAuthSession():
+  | { accessToken: string; userId?: string; email?: string }
+  | null {
+  const t = getAuthToken();
+  if (!t) return null;
+  const p = decodeJwtPayload(t) || {};
+  return { accessToken: t, userId: p.sub || p.id || p.userId, email: p.email };
+  }

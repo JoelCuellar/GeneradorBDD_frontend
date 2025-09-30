@@ -14,7 +14,7 @@ import {
   type UserListItem,
 } from "@/lib/api/users";
 import { ApiError } from "@/lib/api/client";
-
+import { createInvitation } from "@/lib/api/invitations";
 interface CollaboratorManagementProps {
   actorId: string;
   projectId: string;
@@ -119,16 +119,19 @@ export default function CollaboratorManagement({ actorId, projectId, projectName
     setPending(true);
     setError(null);
     try {
-      await createUser({
-        actorId,
-        projectId,
-        email: inviteForm.email.trim(),
-        name: inviteForm.name.trim() || undefined,
-        role: inviteForm.role,
-      });
-      setFeedback("Colaborador invitado correctamente");
-      closeModal();
-      loadCollaborators();
+      const r = await createInvitation({
+  actorId,
+  projectId,
+  email: inviteForm.email.trim().toLowerCase(),
+  role: inviteForm.role,
+  expiresInHours: 72,
+});
+const url = `${window.location.origin}${r.acceptUrl}`;
+try { await navigator.clipboard?.writeText(url); } catch {}
+
+setFeedback("Invitación creada. Enlace copiado al portapapeles.");
+closeModal();
+loadCollaborators();
     } catch (err) {
       setError(resolveError(err));
     } finally {

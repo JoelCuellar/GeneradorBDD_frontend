@@ -9,7 +9,8 @@ import ProjectModeler from "@/components/domain-model/ProjectModeler";
 import type { LoginSuccess } from "@/lib/api/auth";
 import type { ProjectMembershipSnapshot, ProjectRole } from "@/lib/api/users";
 import type { ProjectDto } from "@/lib/api/projects";
-
+import { setAuthToken, clearAuthToken, getAuthToken } from "@/components/auth/token";
+import { useSearchParams } from "next/navigation";
 const ROLE_LABEL: Record<ProjectRole, string> = {
   PROPIETARIO: "Propietario",
   EDITOR: "Editor",
@@ -23,6 +24,23 @@ export default function Page() {
   const [modelProjectId, setModelProjectId] = useState<string | null>(null);
 
   const [ownedProjects, setOwnedProjects] = useState<ProjectMembershipSnapshot[]>([]);
+  // debajo de tus useState principales
+const SESSION_KEY = "app_login_success";
+const searchParams = useSearchParams();
+ useEffect(() => {
+    if (session) return;
+    try {
+      const raw = localStorage.getItem(SESSION_KEY);
+      if (raw) setSession(JSON.parse(raw) as LoginSuccess);
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    try {
+      if (session) localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+      else localStorage.removeItem(SESSION_KEY);
+    } catch {}
+  }, [session]);
 
   const participatingProjects = useMemo(
     () => session?.memberships.filter((m) => m.role !== "PROPIETARIO" && m.active) ?? [],
@@ -104,17 +122,31 @@ export default function Page() {
     });
   }, [modelableProjects]);
 
-  const handleLogin = (data: LoginSuccess) => {
-    setSession(data);
-    setView("dashboard");
-  };
+ const handleLogin = (data: LoginSuccess) => {
+  // toma el JWT que ya guardó el LoginForm (o tu login API)
+  const token = getAuthToken();
+  if (token) {
+    // opcional: también guárdalo como cookie para websockets/etc.
+    setAuthToken(token, { cookie: true });
+  }
 
+  setSession(data);
+
+  const next = searchParams.get("next");
+  if (next) {
+    window.location.replace(next);
+    return;
+  }
+  setView("dashboard");
+};
   const handleLogout = () => {
-    setSession(null);
-    setSelectedProjectId(null);
-    setModelProjectId(null);
-    setView("dashboard");
-  };
+  clearAuthToken();                       // <-- limpia JWT
+  try { localStorage.removeItem(SESSION_KEY); } catch {}
+  setSession(null);
+  setSelectedProjectId(null);
+  setModelProjectId(null);
+  setView("dashboard");
+};
 
   const canOpenModeler = modelableProjects.length > 0;
 
