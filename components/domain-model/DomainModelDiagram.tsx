@@ -133,44 +133,7 @@ const onEdgeUpdate = useCallback<OnEdgeUpdateFunc>((oldEdge, newConn) => {
   const edgeTypes = useMemo(() => ({ multiplicity: MultiplicityEdge }), []);
 
   // Construcción de aristas con etiquetas legibles y estilo por tipo
-  useEffect(() => {
-  const mappedEdges: Edge<EdgeData>[] = relations.map((relation) => {
-    const isSelected = relation.id === selectedRelationId;
-    const s = styleFor(relation.type);
-    const isJoinLeg = joinMeta.joinEdgeIds.has(relation.id);
-    const labelText = `${s.badge ? s.badge + " " : ""}${formatRelationLabel(relation, classNameById)}`.trim();
 
-    return {
-      id: relation.id,
-      source: relation.sourceClassId,
-      target: relation.targetClassId,
-      type: "multiplicity",           // ok
-      data: {
-        relation,
-        selected: isSelected,
-        sourceMultiplicity: relation.sourceMultiplicity,
-        orthogonal: isJoinLeg ? true : undefined,
-        labelYOffset: isJoinLeg ? 8 : 0,
-        targetMultiplicity: relation.targetMultiplicity,
-        labelText,
-      },
-      label: labelText,
-      selectable: true,
-      updatable: true,                // ✅ en tu RF es boolean, no 'both'
-      interactionWidth: 28,           // hitbox grande para seleccionarlo fácil
-      sourceHandle: isJoinLeg ? "b-s-8" : edgeAnchors[relation.id]?.sourceHandle,
-      targetHandle: isJoinLeg ? "t-t-8" : edgeAnchors[relation.id]?.targetHandle,
-      style: isJoinLeg
-       ? { strokeDasharray: "4 3", strokeWidth: 2 }
-       : (s.dash ? { strokeDasharray: s.dash, strokeWidth: 2 } : { strokeWidth: 2 }),
-     markerEnd: isJoinLeg ? undefined : undefined, // (tu edge custom agrega marcador; aquí lo anulamos)
-      animated: isSelected,
-      zIndex: isSelected ? 3 : 1,
-    };
-  });
-
-  setEdges(mappedEdges);              // ✅ ahora encaja con useEdgesState<EdgeData>
-}, [relations, selectedRelationId, classNameById, edgeAnchors, setEdges]);
 
 
   // Guardar posiciones al mover
@@ -218,6 +181,53 @@ const onEdgeUpdate = useCallback<OnEdgeUpdateFunc>((oldEdge, newConn) => {
 
   return { joinEdgeIds };
 }, [relations]);
+
+
+useEffect(() => {
+  const mappedEdges: Edge<EdgeData>[] = relations.map((relation) => {
+    const isSelected = relation.id === selectedRelationId;
+    const s = styleFor(relation.type);
+    const isJoinLeg = joinMeta.joinEdgeIds.has(relation.id);
+    const labelText = `${s.badge ? s.badge + " " : ""}${formatRelationLabel(relation, classNameById)}`.trim();
+
+    return {
+      id: relation.id,
+      source: relation.sourceClassId,
+      target: relation.targetClassId,
+      type: "multiplicity",
+      data: {
+        relation,
+        selected: isSelected,
+        sourceMultiplicity: relation.sourceMultiplicity,
+        orthogonal: isJoinLeg ? true : undefined,
+        labelYOffset: isJoinLeg ? 8 : 0,
+        targetMultiplicity: relation.targetMultiplicity,
+        labelText,
+      },
+      label: labelText,
+      selectable: true,
+      updatable: true,
+      interactionWidth: 28,
+      sourceHandle: isJoinLeg ? "b-s-8" : edgeAnchors[relation.id]?.sourceHandle,
+      targetHandle: isJoinLeg ? "t-t-8" : edgeAnchors[relation.id]?.targetHandle,
+      style: isJoinLeg
+        ? { strokeDasharray: "4 3", strokeWidth: 2 }
+        : (s.dash ? { strokeDasharray: s.dash, strokeWidth: 2 } : { strokeWidth: 2 }),
+      animated: isSelected,
+      zIndex: isSelected ? 3 : 1,
+    };
+  });
+
+  setEdges(mappedEdges);
+}, [
+  relations,
+  selectedRelationId,
+  classNameById,
+  edgeAnchors,
+  setEdges,
+  joinMeta.joinEdgeIds,
+
+]);
 
   const handleConnect = useCallback(
     (connection: Connection) => {

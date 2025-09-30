@@ -86,7 +86,17 @@ export function emitEdgeAnchor(projectId: string, relationId: string, sourceHand
 }
 
 /** (Compat extra) también exporto default para evitar tree-shaking raro en Next */
-export default {
+const realtimeSocketApi = {
   getRealtimeSocket,
   closeRealtimeSocket,
+  subscribeRoles,
+  getProjectRoles,
+  canEdit,
+  joinProject,
+  emitPresence,
+  emitNodeMove,
+  emitNodeMoveCommit,
+  emitEdgeAnchor,
 };
+
+export default realtimeSocketApi;

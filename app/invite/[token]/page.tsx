@@ -1,51 +1,48 @@
-// app/invite/[token]/page.tsx
 "use client";
+
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import type { Route } from "next";
 import { acceptInvitation } from "@/lib/api/invitations";
+import { getAuthToken, getAuthUserId } from "@/components/auth/token";
 import { ApiError } from "@/lib/api/client";
 
-import { getAuthToken, getAuthUserId } from "@/components/auth/token";
-
 export default function AcceptInvitePage({ params }: { params: { token: string } }) {
-  const token = params.token;
-  const [error, setError] = useState<string | null>(null);
+  const { token } = params;
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Si volvemos del login y ya hay token + userId + pending = aceptar automático
+  // Si volvemos del login y ya hay sesión, aceptar automáticamente
   useEffect(() => {
-    const hasJwt = !!getAuthToken();
     const uid = getAuthUserId();
-    const pending = typeof window !== "undefined" ? localStorage.getItem("pendingInviteToken") : null;
-    if (hasJwt && uid && pending === token) {
-      (async () => {
-        try {
-          setBusy(true);
-          const r = await acceptInvitation(token, uid);
-          localStorage.removeItem("pendingInviteToken");
-          window.location.href = `/projects/${r.projectId}`;
-        } catch (e) {
-          setError(e instanceof ApiError ? e.message : "Invitación no válida o expirada");
-          setBusy(false);
-        }
-      })();
+    const pending = typeof window !== "undefined"
+      ? localStorage.getItem("pendingInviteToken")
+      : null;
+
+    if (getAuthToken() && uid && pending === token) {
+      void onAccept(); // dispara aceptación automática
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   const onAccept = async () => {
     const uid = getAuthUserId();
+
+    // Si no hay sesión, guardamos el token y vamos a /login con retorno
     if (!uid) {
-      // sin sesión → guardar token y redirigir a login, que vuelva aquí
-      localStorage.setItem("pendingInviteToken", token);
-      const next = encodeURIComponent(`/invite/${token}`);
-      window.location.href = `/login?next=${next}`;
+      try { localStorage.setItem("pendingInviteToken", token); } catch {}
+      const next = `/invite/${token}`;
+      router.replace((`/login?next=${encodeURIComponent(next)}` as unknown) as Route);
       return;
     }
+
     try {
       setBusy(true);
       setError(null);
       const r = await acceptInvitation(token, uid);
-      localStorage.removeItem("pendingInviteToken");
-      window.location.href = `/projects/${r.projectId}`;
+      try { localStorage.removeItem("pendingInviteToken"); } catch {}
+      router.replace((`/modeler/${r.projectId}` as unknown) as Route); // o "/dashboard"
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Invitación no válida o expirada");
       setBusy(false);
@@ -55,7 +52,9 @@ export default function AcceptInvitePage({ params }: { params: { token: string }
   return (
     <div className="mx-auto max-w-md p-6">
       <h1 className="mb-2 text-xl font-semibold">Invitación al proyecto</h1>
-      <p className="text-sm text-gray-600">Pulsa aceptar para unirte al proyecto.</p>
+      <p className="text-sm text-gray-600">
+        Pulsa <b>Aceptar invitación</b> para unirte al proyecto.
+      </p>
 
       <button
         onClick={onAccept}

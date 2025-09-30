@@ -190,7 +190,10 @@ export function getUserDetails({ userId, actorId, projectId }: GetUserDetailsInp
   const query = buildQuery({ actorId, projectId });
   return apiFetch<UserDetails>(`/users/${userId}${query}`);
 }
-
+export interface Session {
+  user: Pick<UserDto, "id" | "email" | "name">; // o UserDto completo si lo guardas así
+  memberships: ProjectMembershipSnapshot[];
+}
 export interface GetUserHistoryInput extends GetUserDetailsInput {}
 
 export function getUserHistory({ userId, actorId, projectId }: GetUserHistoryInput) {
